@@ -1193,23 +1193,9 @@ function handleAIKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send
 async function sendAIMessage(){
   const input=document.getElementById('aiInput');
   const text=input.value.trim();if(!text)return;
-  if(!QUOTES.length){addAIMessage('ai','Please load your ERP exports first.');return;}
   input.value='';
   addAIMessage('user',text);
-  aiConversation.push({role:'user',content:text});
-  const loader=addAILoader();
-  try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildAIContext(),messages:aiConversation.slice(-20)})
-    });
-    const data=await resp.json();
-    const reply=(data.content&&data.content[0])?data.content[0].text:'No response received.';
-    loader.remove();addAIMessage('ai',reply);
-    aiConversation.push({role:'assistant',content:reply});
-    if(aiConversation.length>30)aiConversation=aiConversation.slice(-30);
-  }catch(err){loader.remove();addAIMessage('ai','Connection error. Check your network and try again.');}
+  addAIMessage('ai','AI assistant is currently unavailable in this version. API access pending approval.');
 }
 let calTarget=null,calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
 function openCalendar(event,orderKey){
@@ -1689,16 +1675,16 @@ function renderRouteSummary(routeJobs){
       if(j.extraStep==='Pickup')pickups++;
     }
   });
-  // V4.0: Sum actual leg times from CLUSTER_DRIVE_TIMES
+  // V4.4: Sum actual leg times — ORS road-based if available, else cluster lookup
   let driveMinutes=0;
-  // Shop (B) → Stop 1
-  driveMinutes+=getDriveTime('B',getJobCluster(routeJobs[0])).mins;
+  // Shop → Stop 1
+  driveMinutes+=getDriveTimeBetweenJobs(null,routeJobs[0]).mins;
   // Stop N → Stop N+1
   for(let i=0;i<routeJobs.length-1;i++){
-    driveMinutes+=getDriveTime(getJobCluster(routeJobs[i]),getJobCluster(routeJobs[i+1])).mins;
+    driveMinutes+=getDriveTimeBetweenJobs(routeJobs[i],routeJobs[i+1]).mins;
   }
-  // Last Stop → Shop (B)
-  driveMinutes+=getDriveTime(getJobCluster(routeJobs[routeJobs.length-1]),'B').mins;
+  // Last Stop → Shop
+  driveMinutes+=getDriveTimeBetweenJobs(routeJobs[routeJobs.length-1],null).mins;
   const driveBuffer=driveMinutes/60;
   const totalDay=totalHours+driveBuffer;
   const overflow=totalDay>8;
@@ -1732,10 +1718,10 @@ function renderRouteList(routeJobs){
   }
   let html='';
   // Shop → Stop 1 divider
-  const firstCluster=getJobCluster(routeJobs[0]);
-  const firstDt=getDriveTime('B',firstCluster);
+  const firstDt=getDriveTimeBetweenJobs(null,routeJobs[0]);
   const firstCls=firstDt.unknown?'route-drive-divider route-drive-divider-unknown':'route-drive-divider';
-  html=`<div class="${firstCls}"><div class="route-drive-divider-line"></div>🚗 ~${firstDt.mins} min${firstDt.unknown?'?':''} <span style="opacity:0.7">(Shop → ${firstCluster?'Cluster '+firstCluster:'Stop 1'})</span><div class="route-drive-divider-line"></div></div>`;
+  const firstSrc=firstDt.source==='ors'?'':' <span style="opacity:0.45;font-size:9px">(est)</span>';
+  html=`<div class="${firstCls}"><div class="route-drive-divider-line"></div>🚗 ~${firstDt.mins} min${firstDt.unknown?'?':''}${firstSrc} <span style="opacity:0.7">(Shop → Stop 1)</span><div class="route-drive-divider-line"></div></div>`;
   routeJobs.forEach((j,i)=>{
     const stopNum=i+1;
     if(j._isVendor){
@@ -1776,23 +1762,21 @@ function renderRouteList(routeJobs){
         </div>
       </div>`;
     }
-    // Leg divider to next stop or back to shop
+    // Leg divider to next stop
     if(i<routeJobs.length-1){
       const next=routeJobs[i+1];
-      const fromC=getJobCluster(j);
-      const toC=getJobCluster(next);
-      const dt=getDriveTime(fromC,toC);
+      const dt=getDriveTimeBetweenJobs(j._isVendor?null:j, next._isVendor?null:next);
       const cls=dt.unknown?'route-drive-divider route-drive-divider-unknown':'route-drive-divider';
-      const fromLbl=fromC?'Cluster '+fromC:'Stop '+stopNum;
-      const toLbl=toC?'Cluster '+toC:'Stop '+(stopNum+1);
-      html+=`<div class="${cls}"><div class="route-drive-divider-line"></div>🚗 ~${dt.mins} min${dt.unknown?'?':''} <span style="opacity:0.7">(${fromLbl} → ${toLbl})</span><div class="route-drive-divider-line"></div></div>`;
+      const src=dt.source==='ors'?'':' <span style="opacity:0.45;font-size:9px">(est)</span>';
+      html+=`<div class="${cls}"><div class="route-drive-divider-line"></div>🚗 ~${dt.mins} min${dt.unknown?'?':''}${src} <span style="opacity:0.7">(Stop ${stopNum} → Stop ${stopNum+1})</span><div class="route-drive-divider-line"></div></div>`;
     }
   });
   // Last stop → Shop divider
-  const lastCluster=getJobCluster(routeJobs[routeJobs.length-1]);
-  const lastDt=getDriveTime(lastCluster,'B');
+  const lastJob=routeJobs[routeJobs.length-1];
+  const lastDt=getDriveTimeBetweenJobs(lastJob._isVendor?null:lastJob,null);
   const lastCls=lastDt.unknown?'route-drive-divider route-drive-divider-unknown':'route-drive-divider';
-  html+=`<div class="${lastCls}"><div class="route-drive-divider-line"></div>🚗 ~${lastDt.mins} min${lastDt.unknown?'?':''} <span style="opacity:0.7">(${lastCluster?'Cluster '+lastCluster:'Last Stop'} → Shop)</span><div class="route-drive-divider-line"></div></div>`;
+  const lastSrc=lastDt.source==='ors'?'':' <span style="opacity:0.45;font-size:9px">(est)</span>';
+  html+=`<div class="${lastCls}"><div class="route-drive-divider-line"></div>🚗 ~${lastDt.mins} min${lastDt.unknown?'?':''}${lastSrc} <span style="opacity:0.7">(Stop ${routeJobs.length} → Shop)</span><div class="route-drive-divider-line"></div></div>`;
   return html;
 }
 
@@ -1849,6 +1833,119 @@ function untargetJob(quoteNumber){
 // ── V3.7 — TARGET MAP (Leaflet + OpenStreetMap) ─────────────────
 const SHOP_COORDS={lat:50.977,lng:-114.057,address:'296 Acadia Dr SE, Calgary, AB T2J 0A7'};
 
+// ── REAL GEOCODING & DRIVE TIMES ──────────────────────────────
+// Replace ORS_API_KEY value with your key from openrouteservice.org
+const ORS_API_KEY = '2da7f588333722a11bdd9063399492a58o7ol1N36k';
+
+// Cache: address string → {lat, lng, fallback: bool}
+const GEOCODE_CACHE = {};
+// ORS matrix cache: sorted coord-key → minutes
+const ORS_MATRIX_CACHE = {};
+
+async function geocodeSingleAddress(address, postalCode) {
+  const query = [address, postalCode, 'Calgary', 'AB', 'Canada'].filter(Boolean).join(', ');
+  const cacheKey = query.toLowerCase().trim();
+  if (GEOCODE_CACHE[cacheKey]) return GEOCODE_CACHE[cacheKey];
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ca&q=' + encodeURIComponent(query);
+    const resp = await fetch(url, { headers: { 'Accept-Language': 'en', 'User-Agent': 'BascoMDE/4.4' } });
+    const data = await resp.json();
+    if (data && data.length > 0) {
+      const result = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), fallback: false };
+      GEOCODE_CACHE[cacheKey] = result;
+      return result;
+    }
+  } catch(e) { /* fall through to FSA centroid */ }
+  const fsa = (postalCode||'').replace(/\s/g,'').substring(0,3).toUpperCase();
+  const centroid = FSA_CENTROIDS[fsa];
+  if (centroid) {
+    const result = { lat: centroid.lat, lng: centroid.lng, fallback: true };
+    GEOCODE_CACHE[cacheKey] = result;
+    return result;
+  }
+  return null;
+}
+
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+async function geocodeAllJobs(jobs) {
+  let progressEl = document.getElementById('geocodeProgress');
+  if (!progressEl) {
+    progressEl = document.createElement('div');
+    progressEl.id = 'geocodeProgress';
+    progressEl.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1e1b4b;color:#fff;padding:8px 18px;border-radius:20px;font-size:12px;font-family:sans-serif;z-index:9999;box-shadow:0 2px 10px rgba(0,0,0,0.4);pointer-events:none';
+    document.body.appendChild(progressEl);
+  }
+  let done = 0;
+  const total = jobs.length;
+  for (const job of jobs) {
+    if (job._realLat !== undefined) { done++; continue; }
+    progressEl.textContent = '\u{1F4CD} Locating addresses\u2026 ' + done + '/' + total;
+    const result = await geocodeSingleAddress(job.address, job.postalCode);
+    if (result) {
+      job._realLat = result.lat;
+      job._realLng = result.lng;
+      job._geocodeFallback = result.fallback;
+    } else {
+      job._realLat = null;
+      job._realLng = null;
+      job._geocodeFallback = true;
+    }
+    done++;
+    await sleep(1100);
+  }
+  progressEl.remove();
+}
+
+async function fetchOrsMatrix(jobs) {
+  if (!ORS_API_KEY || ORS_API_KEY === 'PASTE_YOUR_ORS_KEY_HERE') return null;
+  const locations = [[SHOP_COORDS.lng, SHOP_COORDS.lat]];
+  const indexMap = [];
+  jobs.forEach((job, i) => {
+    if (job._realLat && !job._geocodeFallback) {
+      indexMap.push(i);
+      locations.push([job._realLng, job._realLat]);
+    }
+  });
+  if (locations.length < 2) return null;
+  const cacheKey = locations.map(c=>c.join(',')).join('|');
+  if (ORS_MATRIX_CACHE[cacheKey]) return { matrix: ORS_MATRIX_CACHE[cacheKey], indexMap };
+  try {
+    const resp = await fetch('https://api.openrouteservice.org/v2/matrix/driving-car', {
+      method: 'POST',
+      headers: { 'Authorization': ORS_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locations, metrics: ['duration'], units: 'km' })
+    });
+    const data = await resp.json();
+    if (data && data.durations) {
+      const matrix = data.durations.map(row => row.map(s => Math.round(s / 60)));
+      ORS_MATRIX_CACHE[cacheKey] = matrix;
+      return { matrix, indexMap };
+    }
+  } catch(e) {}
+  return null;
+}
+
+let _orsMatrix = null;
+let _orsIndexMap = [];
+let _orsJobList = [];
+
+function getOrsMinutes(jobA, jobB) {
+  if (!_orsMatrix) return null;
+  const getIdx = (job) => {
+    if (!job) return 0;
+    const pos = _orsJobList.indexOf(job);
+    if (pos < 0) return -1;
+    const orsPos = _orsIndexMap.indexOf(pos);
+    if (orsPos < 0) return -1;
+    return orsPos + 1;
+  };
+  const idxA = getIdx(jobA);
+  const idxB = getIdx(jobB);
+  if (idxA < 0 || idxB < 0) return null;
+  return _orsMatrix[idxA][idxB];
+}
+
 // V4.0: Cluster drive times in minutes (symmetric). Shop anchor = Cluster B depot.
 const CLUSTER_DRIVE_TIMES={
   'SHOP-A':15,'SHOP-B':8,'SHOP-C':15,'SHOP-D':25,'SHOP-E':35,'SHOP-F':25,'SHOP-G':13,
@@ -1868,6 +1965,17 @@ function getDriveTime(clusterA,clusterB){
   if(CLUSTER_DRIVE_TIMES[key1]!==undefined)return{mins:CLUSTER_DRIVE_TIMES[key1],unknown:false};
   if(CLUSTER_DRIVE_TIMES[key2]!==undefined)return{mins:CLUSTER_DRIVE_TIMES[key2],unknown:false};
   return{mins:20,unknown:true};
+}
+// getDriveTimeBetweenJobs: uses ORS matrix if available, else cluster lookup
+// jobA / jobB are job objects or null (null = shop)
+function getDriveTimeBetweenJobs(jobA, jobB) {
+  const ors = getOrsMinutes(jobA, jobB);
+  if (ors !== null) return { mins: ors, unknown: false, source: 'ors' };
+  // fallback: cluster lookup
+  const clA = jobA ? getJobCluster(jobA) : 'B';
+  const clB = jobB ? getJobCluster(jobB) : 'B';
+  const dt = getDriveTime(clA, clB);
+  return { ...dt, source: 'cluster' };
 }
 function getJobCluster(job){
   if(!job)return null;
@@ -1904,6 +2012,9 @@ const VENDOR_PICKUPS={
 };
 
 function getJobCoords(job){
+  // Use real geocoded coords if available
+  if (job._realLat != null) return { lat: job._realLat, lng: job._realLng };
+  // Fallback: FSA centroid
   const fsa=(job.postalCode||'').replace(/\s/g,'').substring(0,3).toUpperCase();
   return FSA_CENTROIDS[fsa]||null;
 }
@@ -1920,6 +2031,36 @@ function initTargetMap(allJobs,routeJobs){
   if(!mapEl||typeof L==='undefined')return;
   if(targetMapInstance){targetMapInstance.remove();targetMapInstance=null;}
   targetMapMarkers={};
+  // V4.4: Async geocode + ORS upgrade after initial render
+  const jobsNeedingGeocode = allJobs.filter(j=>!j._isVendor && j._realLat===undefined);
+  if(jobsNeedingGeocode.length > 0){
+    geocodeAllJobs(allJobs.filter(j=>!j._isVendor)).then(()=>{
+      // Store for ORS matrix lookup
+      _orsJobList = allJobs.filter(j=>!j._isVendor);
+      return fetchOrsMatrix(_orsJobList);
+    }).then(orsResult=>{
+      if(orsResult){ _orsMatrix=orsResult.matrix; _orsIndexMap=orsResult.indexMap; }
+      // Re-render map and route with real data
+      const curTargeted=MDE_SCHEDULE.filter(r=>TARGETED_JOBS.has(r.quoteNumber));
+      const decorated=curTargeted.map(j=>({...j,_zone:getZone(j.postalCode),_cluster:getCluster(j.postalCode)}));
+      const curRouteJobs=ROUTE_STOPS.map(qn=>{
+        if(qn.startsWith('VENDOR_')){const v=qn.replace('VENDOR_','');return VENDOR_PICKUPS[v]?{_isVendor:true,_vendor:v,quoteNumber:qn,customer:VENDOR_PICKUPS[v].name,_name:VENDOR_PICKUPS[v].name,_address:VENDOR_PICKUPS[v].address,address:VENDOR_PICKUPS[v].address,postalCode:'',normVendor:v,extraStep:'Pickup',estimatedTime:'0.5'}:null;}
+        return decorated.find(j=>j.quoteNumber===qn);
+      }).filter(Boolean);
+      initTargetMap(decorated,curRouteJobs);
+      // Also refresh route panel for updated drive times
+      const routePanel=document.getElementById('targetRouteList');
+      if(routePanel) routePanel.innerHTML=renderRouteList(decorated,curRouteJobs);
+    });
+  } else {
+    // Already geocoded — just make sure ORS matrix is loaded
+    _orsJobList = allJobs.filter(j=>!j._isVendor);
+    if(!_orsMatrix && _orsJobList.length > 0){
+      fetchOrsMatrix(_orsJobList).then(orsResult=>{
+        if(orsResult){ _orsMatrix=orsResult.matrix; _orsIndexMap=orsResult.indexMap; }
+      });
+    }
+  }
 
   targetMapInstance=L.map('targetMap',{zoomControl:true,scrollWheelZoom:true}).setView([SHOP_COORDS.lat,SHOP_COORDS.lng],10);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
@@ -2005,10 +2146,11 @@ function initTargetMap(allJobs,routeJobs){
       const opacity=isOnRoute?'1':'0.55';
       const dashStyle=isOnRoute?'':'border-style:dashed;';
       const label=isOnRoute?stopNum:'·';
+      const fallbackBadge=job._geocodeFallback?'<div style="position:absolute;top:-4px;right:-4px;background:#d97706;color:#fff;border-radius:50%;width:13px;height:13px;font-size:8px;display:flex;align-items:center;justify-content:center;border:1px solid #fff;font-family:sans-serif" title="Approximate location">⚠</div>':'';
       const icon=L.divIcon({
         className:'',
-        html:`<div style="background:${color};color:#fff;border-radius:50%;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;${borderStyle};box-shadow:0 1px 4px rgba(0,0,0,0.3);font-family:sans-serif;opacity:${opacity};${dashStyle}">${label}</div>`,
-        iconSize:[size,size],iconAnchor:[size/2,size/2],popupAnchor:[0,-size/2]
+        html:`<div style="position:relative;display:inline-block"><div style="background:${color};color:#fff;border-radius:50%;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;${borderStyle};box-shadow:0 1px 4px rgba(0,0,0,0.3);font-family:sans-serif;opacity:${opacity};${dashStyle}">${label}</div>${fallbackBadge}</div>`,
+        iconSize:[size+8,size+8],iconAnchor:[(size+8)/2,(size+8)/2],popupAnchor:[0,-(size+8)/2]
       });
       const directionsUrl='https://www.google.com/maps/dir/'+encodeURIComponent(SHOP_COORDS.address)+'/'+encodeURIComponent((job.address||'')+', Calgary, AB '+(job.postalCode||''));
       const pickupNote=job.extraStep==='Pickup'?`<div style="font-size:10px;color:#5b21b6;margin-bottom:4px"><strong>📦 Pickup required: ${job.normVendor||''}</strong></div>`:'';
@@ -2021,7 +2163,7 @@ function initTargetMap(allJobs,routeJobs){
           <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:2px">${job.quoteNumber}</div>
           <div style="font-size:12px;font-weight:600;margin-bottom:2px">${job.customer||''}</div>
           <div style="font-size:11px;color:#666;margin-bottom:3px">${job.address||'(no address)'}</div>
-          <div style="font-size:10px;color:#999;margin-bottom:4px">${job.postalCode||''} · Cluster ${job._cluster}</div>
+          <div style="font-size:10px;color:#999;margin-bottom:4px">${job.postalCode||''} · Cluster ${job._cluster}${job._geocodeFallback?'  <span style="color:#d97706;font-weight:700" title="Pin location is approximate (FSA centroid)">⚠️ approx</span>':''}</div>
           <div style="margin-bottom:5px"><span style="font-size:9px;background:#f3f4f6;color:#374151;padding:1px 5px;border-radius:3px;margin-right:3px">${parseFloat(job.estimatedTime)||1}h</span>${(parseInt(job.numTechs)||1)>=2?'<span style="font-size:9px;background:#fed7aa;color:#9a3412;padding:1px 5px;border-radius:3px;margin-right:3px;font-weight:700">2 TECH</span>':''} ${job.extraStep==='Pickup'?`<span style="font-size:9px;background:#ede9fe;color:#5b21b6;padding:1px 5px;border-radius:3px;font-weight:700">📦 ${job.normVendor||'PICKUP'}</span>`:''}</div>
           ${pickupNote}${onRouteNote}
           <a href="${directionsUrl}" target="_blank" rel="noopener" style="display:inline-block;font-size:10px;background:#0550ae;color:#fff;padding:4px 10px;border-radius:4px;text-decoration:none;font-weight:600">Directions from Shop</a>
@@ -2503,27 +2645,9 @@ async function sendTargetAIMessage(){
   const input=document.getElementById('targetAIInput');
   if(!input)return;
   const text=input.value.trim();if(!text)return;
-  if(!TARGETED_JOBS.size){addTargetAIMessage('ai','Select some jobs first to plan a route.');return;}
   input.value='';
   addTargetAIMessage('user',text);
-  targetAIConversation.push({role:'user',content:text});
-  const loader=addTargetAILoader();
-  try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,system:buildTargetAIContext(),messages:targetAIConversation.slice(-20)})
-    });
-    const data=await resp.json();
-    const reply=(data.content&&data.content[0])?data.content[0].text:'No response received.';
-    if(loader)loader.remove();
-    addTargetAIMessage('ai',reply);
-    targetAIConversation.push({role:'assistant',content:reply});
-    if(targetAIConversation.length>30)targetAIConversation=targetAIConversation.slice(-30);
-  }catch(err){
-    if(loader)loader.remove();
-    addTargetAIMessage('ai','Connection error: '+err.message);
-  }
+  addTargetAIMessage('ai','Route AI is currently unavailable in this version. API access pending approval.');
 }
 
 // ── PICKUP MULTI-PRODUCT ───────────────────────────────────────
