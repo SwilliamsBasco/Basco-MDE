@@ -1,0 +1,2557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Basco MDE V3.9</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --surface2: #f0f2f5;
+  --border: #d0d7de;
+  --border2: #e8eaed;
+  --text: #1a1e23;
+  --text2: #57606a;
+  --text3: #9ca3af;
+  --blue: #0969da;
+  --blue-bg: #dbeafe;
+  --blue-dark: #0550ae;
+  --green: #1a7f37;
+  --green-bg: #dcfce7;
+  --amber: #9a6700;
+  --amber-bg: #fef9c3;
+  --red: #cf222e;
+  --red-bg: #fee2e2;
+  --purple: #6e40c9;
+  --purple-bg: #ede9fe;
+  --teal: #0e7490;
+  --teal-bg: #e0f2fe;
+  --yellow-field: #fffbeb;
+  --header-blue: #0550ae;
+  --header-blue-bg: #dbeafe;
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'Consolas', 'SF Mono', monospace;
+  --sidebar-w: 200px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; min-height: 100vh; display: flex; flex-direction: column; }
+.app-header { background: var(--header-blue); color: #fff; padding: 0 20px; height: 44px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.header-left { display: flex; align-items: center; gap: 12px; }
+.header-logo { font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
+.header-version { font-size: 10px; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 3px; font-family: var(--mono); }
+.header-date { font-size: 11px; color: rgba(255,255,255,0.7); font-family: var(--mono); }
+.app-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+.sidebar { width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; transition: width 0.2s ease; overflow: hidden; }
+.sidebar.collapsed { width: 32px; }
+.sidebar.collapsed .sidebar-section, .sidebar.collapsed .sidebar-divider, .sidebar.collapsed .sidebar-label { display: none; }
+.nav-collapse-btn { width: 100%; padding: 8px 0; border: none; background: none; cursor: pointer; color: var(--text3); font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-bottom: 1px solid var(--border2); }
+.nav-collapse-btn:hover { background: var(--surface2); color: var(--text); }
+.sidebar.collapsed .nav-collapse-btn { border-bottom: none; }
+.sidebar-section { padding: 12px 0 4px; }
+.sidebar-label { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; padding: 0 14px; margin-bottom: 4px; }
+.nav-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 14px; border: none; background: none; text-align: left; cursor: pointer; font-family: var(--font); font-size: 12px; color: var(--text2); transition: background 0.1s; }
+.nav-btn:hover { background: var(--surface2); color: var(--text); }
+.nav-btn.active { background: var(--blue-bg); color: var(--blue-dark); font-weight: 600; }
+.nav-pip { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.nav-count { margin-left: auto; font-family: var(--mono); font-size: 10px; background: var(--surface2); padding: 1px 6px; border-radius: 10px; color: var(--text3); }
+.nav-btn.active .nav-count { background: rgba(9,105,218,0.15); color: var(--blue-dark); }
+.sidebar-divider { height: 1px; background: var(--border2); margin: 8px 14px; }
+.load-btn { display: flex; align-items: center; gap: 8px; width: calc(100% - 28px); margin: 8px 14px; padding: 7px 12px; border: 1px dashed var(--border); border-radius: 5px; background: none; cursor: pointer; font-size: 11px; color: var(--text3); font-family: var(--font); transition: all 0.1s; }
+.load-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+.main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.toolbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 16px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.search-box { flex: 1; max-width: 320px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; font-family: var(--font); outline: none; background: var(--surface); color: var(--text); }
+.search-box:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(9,105,218,0.1); }
+.filter-sel { padding: 6px 8px; border: 1px solid var(--border); border-radius: 5px; font-size: 11px; font-family: var(--mono); background: var(--surface); color: var(--text2); outline: none; cursor: pointer; }
+.row-count { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-left: auto; }
+.view-area { flex: 1; overflow: auto; padding: 0; }
+.view-area.target-active { overflow: hidden; display: flex; flex-direction: row; }
+.mde-table-wrap { overflow-x: visible; }
+.mde-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+.mde-table thead tr { position: sticky; top: 0; z-index: 10; }
+.mde-table th { background: var(--header-blue); color: #fff; padding: 8px 10px; text-align: left; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; border-right: 1px solid rgba(255,255,255,0.15); white-space: nowrap; }
+.mde-table th:last-child { border-right: none; }
+.mde-table td { padding: 7px 10px; border-bottom: 1px solid var(--border2); color: var(--text2); vertical-align: middle; }
+.mde-table tr:nth-child(even):not(.section-header):not(.sub-section-header):not(.task-header):not(.vendor-header-row):not(.task-section-title):not(.copy-section-title):not(.copy-group-hdr) td { background: var(--surface2); }
+.mde-table tr:hover:not(.section-header):not(.sub-section-header):not(.task-header):not(.vendor-header-row):not(.task-section-title):not(.copy-section-title):not(.copy-group-hdr) td { background: #e8ecf0; }
+.mde-table tr.section-header td, .mde-table tr.sub-section-header td { background: inherit !important; color: #fff !important; font-weight: 700; font-size: 11px; letter-spacing: 0.04em; padding: 6px 10px; cursor: pointer; user-select: none; }
+.mde-table tr.section-header:hover td, .mde-table tr.sub-section-header:hover td { filter: brightness(1.15) !important; }
+.mde-table tr.row-bold td { font-weight: 600; color: var(--text); }
+.mde-table tr.row-italic td { font-style: italic; }
+.mde-table tr.section-data-hidden { display: none; }
+.tog { display: inline-block; transition: transform 0.2s; margin-right: 6px; font-size: 10px; }
+.tog.closed { transform: rotate(-90deg); }
+tr.section-header[data-section="sec-1"] { background-color: #1e3a8a; }
+tr.section-header[data-section="sec-2"] { background-color: #1d4ed8; }
+tr.section-header[data-section="sec-3"] { background-color: #0f766e; }
+tr.section-header[data-section="sec-4"] { background-color: #15803d; }
+tr.section-header[data-section="sec-5"] { background-color: #92400e; }
+.mde-table tr.task-header td { background: linear-gradient(90deg, #7c2d12, #9a3412) !important; color: #fff !important; font-weight: 700; font-size: 11px; cursor: pointer; user-select: none; }
+.mde-table tr.task-header:hover td { filter: brightness(1.15) !important; }
+tr.sub-section-header[data-subsection="sub-1-scheduled"] { background-color: #2d5099; }
+tr.sub-section-header[data-subsection="sub-1-review"]    { background-color: #3a6bc4; }
+tr.sub-section-header[data-subsection="sub-5-1week"]      { background-color: #b45309; }
+tr.sub-section-header[data-subsection="sub-5-2plus"]      { background-color: #c97d1a; }
+tr.sub-section-header[data-subsection="sub-5-processing"] { background-color: #d4972e; }
+.scroll-top-wrap { overflow-x: auto; overflow-y: hidden; height: 12px; flex-shrink: 0; border-bottom: 1px solid var(--border2); }
+.scroll-top-inner { height: 1px; }
+.badge { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 10px; font-weight: 600; font-family: var(--mono); white-space: nowrap; }
+.badge-blue { background: var(--blue-bg); color: var(--blue-dark); }
+.badge-green { background: var(--green-bg); color: var(--green); }
+.badge-amber { background: var(--amber-bg); color: var(--amber); }
+.badge-red { background: var(--red-bg); color: var(--red); }
+.badge-purple { background: var(--purple-bg); color: var(--purple); }
+.badge-teal { background: var(--teal-bg); color: var(--teal); }
+.badge-gray { background: var(--surface2); color: var(--text3); border: 1px solid var(--border); }
+.badge-flag { background: #fee2e2; color: #cf222e; }
+.pickup-badge { background: #fef3c7; color: #92400e; }
+.mono-sm { font-family: var(--mono); font-size: 11px; }
+.upload-screen { display: flex; align-items: center; justify-content: center; flex: 1; flex-direction: column; gap: 20px; padding: 40px; }
+.upload-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 40px 56px; text-align: center; max-width: 500px; width: 100%; }
+.upload-card.drag-over { border-color: var(--blue); background: var(--blue-bg); }
+.upload-icon { font-size: 40px; margin-bottom: 16px; }
+.upload-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.upload-sub { font-size: 12px; color: var(--text2); margin-bottom: 24px; line-height: 1.7; }
+.upload-sub strong { color: var(--text); }
+.upload-primary-btn { background: var(--blue); color: #fff; border: none; border-radius: 5px; padding: 10px 24px; font-size: 13px; font-family: var(--font); cursor: pointer; font-weight: 600; transition: background 0.15s; }
+.upload-primary-btn:hover { background: var(--blue-dark); }
+.file-input { display: none; }
+.run-btn { margin-top: 16px; width: 100%; padding: 11px; border: none; border-radius: 5px; font-size: 13px; font-family: var(--font); font-weight: 700; background: #d0d7de; color: var(--text3); cursor: not-allowed; transition: all 0.15s; }
+.run-btn.ready { background: var(--green); color: #fff; cursor: pointer; }
+.run-btn.ready:hover { background: #15692e; }
+.upload-note { font-size: 11px; color: var(--text3); text-align: center; }
+.file-status { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+.file-chip { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--green-bg); border: 1px solid #86efac; border-radius: 4px; font-size: 11px; color: var(--green); font-family: var(--mono); }
+.file-chip.pending { background: var(--surface2); border-color: var(--border); color: var(--text3); }
+.vendor-header-row td { background: #1e3a5f !important; color: #fff !important; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; padding: 8px 10px; }
+.vendor-count { font-size: 10px; font-weight: 400; opacity: 0.8; margin-left: 8px; }
+.task-comment-cell { min-width: 200px; white-space: normal; max-width: 300px; }
+.view-title-bar { padding: 12px 16px 8px; background: var(--surface); border-bottom: 1px solid var(--border2); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.ai-panel { width: 320px; border-left: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; flex-shrink: 0; transition: width 0.2s ease; overflow: hidden; }
+.ai-panel-header { padding: 10px 14px; border-bottom: 1px solid var(--border2); display: flex; align-items: center; gap: 8px; background: var(--header-blue); flex-shrink: 0; }
+.ai-status-dot { width: 7px; height: 7px; background: #86efac; border-radius: 50%; animation: pulse 2s infinite; flex-shrink: 0; }
+.ai-panel-title { font-size: 12px; font-weight: 700; color: #fff; }
+.ai-collapse-btn { margin-left: auto; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; cursor: pointer; font-size: 14px; padding: 2px 8px; line-height: 1.4; border-radius: 3px; flex-shrink: 0; }
+.ai-collapse-btn:hover { background: rgba(255,255,255,0.35); }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+.ai-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.ai-msg { max-width: 95%; }
+.ai-msg-user { align-self: flex-end; }
+.ai-msg-ai { align-self: flex-start; }
+.ai-msg-label { font-size: 9px; color: var(--text3); font-family: var(--mono); margin-bottom: 3px; text-transform: uppercase; }
+.ai-msg-user .ai-msg-label { text-align: right; }
+.ai-bubble { padding: 8px 11px; border-radius: 8px; font-size: 11px; line-height: 1.6; }
+.ai-msg-user .ai-bubble { background: var(--blue-bg); color: var(--blue-dark); border: 1px solid #bfdbfe; }
+.ai-msg-ai .ai-bubble { background: var(--surface2); color: var(--text); border: 1px solid var(--border2); }
+.ai-input-area { padding: 10px; border-top: 1px solid var(--border2); }
+.ai-quick-prompts { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.ai-qp { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 3px 9px; font-size: 10px; color: var(--text3); cursor: pointer; transition: all 0.1s; font-family: var(--font); }
+.ai-qp:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+.ai-input-row { display: flex; gap: 6px; }
+.ai-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 7px 9px; color: var(--text); font-size: 11px; font-family: var(--font); outline: none; resize: none; height: 36px; }
+.ai-input:focus { border-color: var(--blue); background: var(--surface); }
+.ai-send-btn { background: var(--blue); border: none; border-radius: 5px; width: 34px; height: 36px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ai-send-btn:hover { background: var(--blue-dark); }
+.ai-send-btn svg { fill: #fff; }
+.ai-loading { display: flex; align-items: center; gap: 6px; padding: 8px 11px; }
+.ai-dots span { display: inline-block; width: 4px; height: 4px; background: var(--blue); border-radius: 50%; margin: 0 1px; animation: blink 1.4s infinite both; }
+.ai-dots span:nth-child(2){animation-delay:.2s}
+.ai-dots span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:0}40%{opacity:1}}
+.stats-strip { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+.stat-cell { flex: 1; padding: 10px 16px; border-right: 1px solid var(--border2); }
+.stat-cell:last-child { border-right: none; }
+.stat-label { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; }
+.stat-value { font-size: 20px; font-weight: 700; font-family: var(--mono); }
+.stat-sub { font-size: 10px; color: var(--text3); margin-top: 1px; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.save-indicator { font-size: 10px; font-family: var(--mono); color: rgba(255,255,255,0); transition: all 0.3s; }
+.save-indicator.saving { color: #fcd34d; }
+.save-indicator.saved  { color: #86efac; }
+.orphan-inline { font-size: 11px; color: var(--text3); font-style: italic; padding: 6px 4px 2px 2px; }
+.yellow-input { background: var(--yellow-field); border: 1px solid transparent; border-radius: 3px; padding: 3px 6px; font-size: 11px; font-family: var(--font); color: var(--text); width: 100%; outline: none; transition: border-color 0.15s; }
+.yellow-input:focus { border-color: #fcd34d; background: #fff; box-shadow: 0 0 0 2px rgba(252,211,77,0.25); }
+.ready-checkbox { width: 16px; height: 16px; cursor: pointer; accent-color: var(--green); }
+.task-row-ready td { background: #dcfce7 !important; }
+.date-picker-wrap { position: relative; display: inline-block; width: 100%; }
+.date-display { background: var(--yellow-field); border: 1px solid transparent; border-radius: 3px; padding: 3px 6px; font-size: 11px; font-family: var(--mono); color: var(--text3); cursor: pointer; display: flex; align-items: center; gap: 5px; transition: border-color 0.15s; white-space: nowrap; min-width: 110px; }
+.date-display:hover { border-color: #fcd34d; }
+.date-display.has-date { color: var(--blue-dark); font-weight: 600; }
+.calendar-popup { position: fixed; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); z-index: 9999; padding: 10px; width: 224px; display: none; }
+.calendar-popup.open { display: block; }
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cal-nav { background: none; border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 13px; color: var(--text2); line-height: 1.4; }
+.cal-nav:hover { background: var(--surface2); }
+.cal-month-label { font-size: 12px; font-weight: 600; color: var(--text); }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 1px; }
+.cal-day-hdr { font-size: 9px; font-weight: 600; color: var(--text3); text-align: center; padding: 3px 0; }
+.cal-day { font-size: 11px; text-align: center; padding: 4px 2px; cursor: pointer; border-radius: 3px; color: var(--text2); }
+.cal-day:hover { background: var(--blue-bg); color: var(--blue-dark); }
+.cal-day.is-today { font-weight: 700; color: var(--blue-dark); background: var(--blue-bg); }
+.cal-day.is-selected { background: var(--blue); color: #fff; font-weight: 700; }
+.cal-day.other-month { color: var(--text3); }
+.cal-day.empty { cursor: default; }
+.cal-clear { width: 100%; margin-top: 8px; background: none; border: 1px solid var(--border); border-radius: 3px; padding: 4px; font-size: 10px; color: var(--text3); cursor: pointer; font-family: var(--font); }
+.cal-clear:hover { border-color: var(--red); color: var(--red); }
+.task-section-row td { background: #dcfce7 !important; }
+.task-section-empty td { background: #f9fafb; color: var(--text3); font-style: italic; }
+.po-uncertain { background: #d9d9d9 !important; }
+.copy-section-title td { background: #5b5b99 !important; color: #fff !important; font-weight: 700; font-size: 13px; text-align: center; padding: 10px; }
+.copy-group-hdr td { background: #e8e8f5 !important; color: #3d3d7a !important; font-weight: 700; font-size: 11px; padding: 6px 10px; }
+.copy-output-cell { background: #ede9fe; min-width: 260px; white-space: normal; word-break: break-word; }
+.copy-btn { background: var(--purple); color: #fff; border: none; border-radius: 3px; padding: 3px 9px; font-size: 10px; cursor: pointer; font-family: var(--font); font-weight: 600; white-space: nowrap; }
+.copy-btn:hover { background: #5a32a3; }
+.copy-btn.copied { background: var(--green); }
+.pickup-loc-cell { min-width: 130px; white-space: normal; font-size: 11px; }
+
+/* ── V4.0 — TARGET SCHEDULING LAYOUT (Google Maps style sidebar) ── */
+.target-map-header{padding:8px 14px;background:var(--surface);border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.target-map-title{font-size:12px;font-weight:700;color:#5b21b6;}
+.target-map-sub{font-size:11px;color:var(--text3);}
+#targetMap{flex:1;min-height:0;background:#e8eef3;margin:10px;border-radius:8px;border:1.5px solid #c4b5fd;overflow:hidden;box-shadow:0 1px 6px rgba(91,33,182,0.08);}
+.target-job-strip{flex-shrink:0;max-height:180px;overflow-y:auto;border-top:2px solid #e9d5ff;background:#faf5ff;}
+.target-job-strip table{width:100%;border-collapse:collapse;font-size:11px;}
+.target-job-strip th{position:sticky;top:0;background:#5b21b6;color:#fff;padding:5px 8px;text-align:left;font-weight:600;font-size:10px;letter-spacing:0.04em;text-transform:uppercase;z-index:1;}
+.target-job-strip td{padding:5px 8px;border-bottom:1px solid #e9d5ff;background:#fff;}
+.target-job-strip tr:hover td{background:#ede9fe;cursor:pointer;}
+.target-num-pin{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;}
+.target-deselect-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;padding:0 4px;line-height:1;}
+.target-deselect-btn:hover{color:#9f1239;}
+/* Cluster colours for pins (matches existing zone- classes) */
+.cluster-color-A{background:#15803d;}
+.cluster-color-B{background:#d97706;}
+.cluster-color-C{background:#1d4ed8;}
+.cluster-color-D{background:#6d28d9;}
+.cluster-color-E{background:#0e7490;}
+.cluster-color-F{background:#3730a3;}
+.cluster-color-G{background:#92400e;}
+.cluster-color-OUTLIER{background:#be123c;}
+.cluster-color-UNKNOWN{background:#6b7280;}
+
+/* ── V4.0 — SIDEBAR LAYOUT (Candidates + Today's Route in left sidebar) ── */
+.target-view{display:flex;flex-direction:row;flex:1;min-height:0;overflow:hidden;}
+.target-sidebar{width:360px;flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto;border-right:2px solid #e9d5ff;background:#fff;}
+.target-sidebar-header{padding:8px 12px;background:#5b21b6;color:#fff;font-size:11px;font-weight:700;letter-spacing:0.04em;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.target-pane{display:flex;flex-direction:column;background:#fff;}
+.target-candidates-pane{border-bottom:2px solid #e9d5ff;}
+.target-route-pane{background:#faf5ff;}
+.target-pane-header{padding:8px 12px;background:#5b21b6;color:#fff;font-size:11px;font-weight:700;letter-spacing:0.04em;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.target-pane-count{margin-left:auto;background:#fff;color:#5b21b6;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;}
+.target-pane-body{padding:6px;}
+.target-row{background:#fff;border:1px solid var(--border2);border-radius:6px;padding:7px 9px;margin-bottom:5px;cursor:pointer;transition:border-color 0.1s;}
+.target-row:hover{border-color:#7c3aed;}
+.target-row.vendor-row{background:#fffbeb;border-color:#fbbf24;}
+.target-row.vendor-row:hover{border-color:#d97706;}
+.target-row-main{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px;}
+.target-row-customer{font-weight:600;font-size:11px;color:var(--text);flex:1;min-width:0;}
+.target-row-sub{font-size:10px;color:var(--text2);margin-bottom:5px;}
+.target-row-actions{display:flex;gap:5px;justify-content:flex-end;}
+.target-add-btn{background:#7c3aed;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font);}
+.target-add-btn:hover{background:#6d28d9;}
+.target-untarget-btn{background:none;border:1px solid var(--border);color:var(--text2);border-radius:4px;padding:3px 7px;font-size:11px;cursor:pointer;font-family:var(--font);}
+.target-untarget-btn:hover{background:var(--red-bg);border-color:var(--red);color:var(--red);}
+.target-reorder-btn{background:none;border:1px solid var(--border);color:var(--text2);border-radius:4px;padding:3px 6px;font-size:11px;cursor:pointer;font-family:var(--font);min-width:24px;}
+.target-reorder-btn:hover:not(:disabled){background:#ede9fe;border-color:#7c3aed;color:#5b21b6;}
+.target-reorder-btn:disabled{opacity:0.3;cursor:not-allowed;}
+.route-summary{background:#ede9fe;color:#5b21b6;padding:6px 12px;font-size:11px;font-weight:600;border-bottom:1px solid #c4b5fd;}
+.route-summary-overflow{background:#fee2e2;color:#991b1b;}
+.pickup-info{background:#dcfce7;color:#15803d;padding:5px 12px;font-size:10px;font-weight:600;border-bottom:1px solid #86efac;}
+.pickup-warn{background:#fef9c3;color:#92400e;padding:5px 12px;font-size:10px;font-weight:600;border-bottom:1px solid #fcd34d;}
+.route-stop{background:#fff;border:1px solid var(--border2);border-radius:6px;padding:7px 9px;margin-bottom:4px;display:flex;align-items:flex-start;gap:8px;}
+.route-stop.vendor-stop{background:#fffbeb;border-color:#fbbf24;}
+.route-stop-num{background:#7c3aed;color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;}
+.route-stop.vendor-stop .route-stop-num{background:#92400e;}
+.route-stop-body{flex:1;min-width:0;}
+.route-stop-main{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:3px;}
+.route-stop-customer{font-weight:600;font-size:11px;color:var(--text);}
+.route-stop-sub{font-size:10px;color:var(--text2);}
+.route-stop-actions{display:flex;flex-direction:column;gap:3px;flex-shrink:0;}
+.route-leg-btn{padding:4px 9px;text-align:center;}
+.route-leg-btn a{display:inline-block;font-size:10px;background:#dbeafe;color:#1d4ed8;padding:4px 12px;border-radius:12px;text-decoration:none;font-weight:600;border:1px solid #bfdbfe;}
+.route-leg-btn a:hover{background:#bfdbfe;}
+.route-leg-final a{background:#dcfce7;color:#15803d;border-color:#86efac;}
+.route-leg-final a:hover{background:#bbf7d0;}
+/* V4.0 drive time dividers in Today's Route */
+.route-drive-divider{display:flex;align-items:center;gap:6px;padding:3px 8px;color:var(--text3);font-size:10px;font-style:italic;}
+.route-drive-divider-line{flex:1;height:1px;background:var(--border2);}
+.route-drive-divider-unknown{color:#f59e0b;}
+/* V4.1 target layout: sidebar left | map+AI column right */
+.target-map-col{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;}
+.target-right{display:flex;flex-direction:column;height:210px;flex-shrink:0;border-top:2px solid #e9d5ff;background:#fff;overflow:hidden;}
+.target-ai-header{padding:8px 14px;background:#5b21b6;color:#fff;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.target-ai-title{font-size:12px;font-weight:700;letter-spacing:0.04em;}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-left">
+    <span class="header-logo">Basco MDE</span>
+    <span class="header-version">V4.2</span>
+  </div>
+  <div class="header-right">
+    <span class="save-indicator" id="saveIndicator"></span>
+    <span class="header-date" id="headerDate"></span>
+  </div>
+</header>
+
+<div class="app-body">
+  <nav class="sidebar" id="appSidebar">
+    <button class="nav-collapse-btn" onclick="toggleSidebar()" id="sidebarCollapseBtn" title="Collapse navigation">‹</button>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Views</div>
+      <button class="nav-btn active" id="nav-schedule" onclick="switchView('schedule')">
+        <span class="nav-pip" style="background:#0969da"></span>
+        Schedule
+        <span class="nav-count" id="cnt-schedule">—</span>
+      </button>
+      <button class="nav-btn" id="nav-pickup" onclick="switchView('pickup')">
+        <span class="nav-pip" style="background:#d29922"></span>
+        Pickup
+        <span class="nav-count" id="cnt-pickup">—</span>
+      </button>
+      <button class="nav-btn" id="nav-tasks" onclick="switchView('tasks')">
+        <span class="nav-pip" style="background:#cf222e"></span>
+        Task to Complete
+        <span class="nav-count" id="cnt-tasks">—</span>
+      </button>
+      <button class="nav-btn" id="nav-target" onclick="switchView('target')">
+        <span class="nav-pip" style="background:#7c3aed"></span>
+        Target Scheduling
+        <span class="nav-count" id="cnt-target" style="background:#ede9fe;color:#5b21b6;border-color:#c4b5fd">0</span>
+      </button>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Data</div>
+      <button class="load-btn" onclick="resetAndLoad()">
+        <span style="font-size:13px">⊕</span> Load Exports
+      </button>
+      <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls" multiple>
+    </div>
+  </nav>
+
+  <div class="main-content" id="mainContent">
+    <div class="upload-screen" id="uploadScreen">
+      <div class="upload-card" id="dropZone">
+        <div class="upload-icon">📋</div>
+        <div class="upload-title">Basco MDE V4.1</div>
+        <div class="upload-sub">
+          Upload your raw ERP exports to build the Schedule,<br>
+          Pickup, and Task to Complete views.<br><br>
+          Select <strong>QUOTATIONS</strong> and <strong>ORDERS</strong> files together.
+        </div>
+        <button class="upload-primary-btn" onclick="document.getElementById('fileInput').click()">
+          Select Export Files
+        </button>
+        <div class="file-status" id="fileStatus">
+          <div class="file-chip pending">QUOTATIONS-YYYYMMDD.xlsx — not loaded</div>
+          <div class="file-chip pending">ORDERS-YYYYMMDD.xlsx — not loaded</div>
+        </div>
+        <button class="run-btn" id="runBtn" onclick="runMDE()" disabled>Waiting for files...</button>
+        <div id="runError" style="display:none;margin-top:10px;padding:8px 12px;background:#fee2e2;border:1px solid #fca5a5;border-radius:4px;font-size:11px;color:#991b1b;font-family:var(--mono);text-align:left;word-break:break-all;"></div>
+      </div>
+      <div class="upload-note">Files are processed entirely in your browser — no data is uploaded externally</div>
+    </div>
+
+    <div id="dataViews" style="display:none; flex-direction:column; flex:1; overflow:hidden; min-height:0;">
+
+      <div class="stats-strip">
+        <div class="stat-cell"><div class="stat-label">Schedule Queue</div><div class="stat-value" id="s-queue" style="color:var(--blue)">—</div><div class="stat-sub">1.02/1.03/3.01/3.05/3.06</div></div>
+        <div class="stat-cell"><div class="stat-label">Install Due</div><div class="stat-value" id="s-install" style="color:var(--green)">—</div><div class="stat-sub">state 3.06</div></div>
+        <div class="stat-cell"><div class="stat-label">Pickup Orders</div><div class="stat-value" id="s-pickup" style="color:var(--amber)">—</div><div class="stat-sub">non-delivery vendors</div></div>
+        <div class="stat-cell"><div class="stat-label">Task to Complete</div><div class="stat-value" id="s-tasks" style="color:var(--red)">—</div><div class="stat-sub">state 3.10</div></div>
+        <div class="stat-cell"><div class="stat-label">Total Quotes</div><div class="stat-value" id="s-total" style="color:var(--text)">—</div><div class="stat-sub">loaded</div></div>
+      </div>
+      <div class="toolbar">
+        <input class="search-box" id="searchBox" placeholder="Search customer, quote #, address..." oninput="applySearch()">
+        <button class="toolbar-btn" id="btnSelectAll" onclick="selectAllVisible()" style="display:none">Select All</button>
+        <button class="toolbar-btn" id="btnClearSel" onclick="clearSelection()" style="display:none">Clear</button>
+        <button class="target-counter" id="targetCounter" onclick="switchView('target')" style="display:none">🎯 0 selected</button>
+        <select class="filter-sel" id="stateFilter" onchange="applySearch()">
+          <option value="">All states</option>
+          <option value="1.02">1.02 Quotation Appt</option>
+          <option value="1.03">1.03 Estimate</option>
+          <option value="3.01">3.01 Measure Appt</option>
+          <option value="3.05">3.05 Order Follow-Up</option>
+          <option value="3.06">3.06 Installation Appt</option>
+        </select>
+        <span class="row-count" id="rowCount"></span>
+      </div>
+      <div class="scroll-top-wrap" id="scrollTop"><div class="scroll-top-inner" id="scrollTopInner"></div></div>
+      <div class="view-area" id="viewArea"></div>
+    </div>
+  </div>
+
+  <div class="ai-panel">
+    <div class="ai-panel-header">
+      <div class="ai-status-dot"></div>
+      <div class="ai-panel-title">BASCO AI</div>
+      <button onclick="toggleAIPanel()" id="aiCollapseBtn" class="ai-collapse-btn" title="Collapse panel">›</button>
+    </div>
+    <div id="aiPanelBody" style="flex:1;height:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;">
+      <div class="ai-messages" id="aiMessages">
+        <div class="ai-msg ai-msg-ai">
+          <div class="ai-msg-label">BASCO AI</div>
+          <div class="ai-bubble">Load your ERP exports and I'll have full context on your pipeline. Ask me anything about the data.</div>
+        </div>
+      </div>
+      <div class="ai-input-area">
+        <div class="ai-quick-prompts">
+          <div class="ai-qp" onclick="askAI(this)">What needs attention today?</div>
+          <div class="ai-qp" onclick="askAI(this)">Show all 3.06 quotes</div>
+          <div class="ai-qp" onclick="askAI(this)">Pickup ready this week?</div>
+          <div class="ai-qp" onclick="askAI(this)">Any overdue tasks?</div>
+        </div>
+        <div class="ai-input-row">
+          <textarea class="ai-input" id="aiInput" placeholder="Ask about your data..." onkeydown="handleAIKey(event)"></textarea>
+          <button class="ai-send-btn" onclick="sendAIMessage()">
+            <svg width="13" height="13" viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="calendar-popup" id="calendarPopup">
+  <div class="cal-header">
+    <button class="cal-nav" onclick="calNav(-1)">&#8249;</button>
+    <span class="cal-month-label" id="calMonthLabel"></span>
+    <button class="cal-nav" onclick="calNav(1)">&#8250;</button>
+  </div>
+  <div class="cal-grid" id="calGrid"></div>
+  <button class="cal-clear" onclick="calClear()">Clear date</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+let QUOTES=[],ORDERS=[],MDE_SCHEDULE=[],MDE_PICKUP={},MDE_TASKS=[],currentView='schedule';
+let TARGETED_JOBS=new Set(); // session only — no storage
+let ROUTE_STOPS=[]; // V3.8: ordered array of quote numbers committed to today's route — session only
+let PICKUP_STATE={},TASK_STATE={},saveTimer=null,aiConversation=[];
+const SK_PICKUP='mde_pickup_state_v32',SK_TASK='mde_task_state_v32';
+
+document.getElementById('headerDate').textContent=new Date().toLocaleDateString('en-CA',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+
+async function loadStateFromStorage(){
+  try{const r=await window.storage.get(SK_PICKUP);if(r&&r.value)PICKUP_STATE=JSON.parse(r.value);}catch(e){PICKUP_STATE={};}
+  try{const r=await window.storage.get(SK_TASK);if(r&&r.value)TASK_STATE=JSON.parse(r.value);}catch(e){TASK_STATE={};}
+}
+async function savePickupState(){try{await window.storage.set(SK_PICKUP,JSON.stringify(PICKUP_STATE));}catch(e){}}
+async function saveTaskState(){try{await window.storage.set(SK_TASK,JSON.stringify(TASK_STATE));}catch(e){}}
+function showSave(state){
+  const el=document.getElementById('saveIndicator');
+  if(!el)return;
+  el.className='save-indicator '+state;
+  el.textContent=state==='saving'?'● Saving...':'✓ Saved';
+  if(state==='saved')setTimeout(()=>{el.textContent='';el.className='save-indicator';},2000);
+}
+
+const HARD_EXCLUDE=new Set(['CALGQU-08623']);
+
+document.getElementById('fileInput').addEventListener('change',function(e){
+  Array.from(e.target.files).forEach(loadFile);
+  e.target.value='';
+});
+const dropZone=document.getElementById('dropZone');
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('drag-over');});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop',e=>{
+  e.preventDefault();dropZone.classList.remove('drag-over');
+  Array.from(e.dataTransfer.files).filter(f=>/\.xlsx?$/i.test(f.name)).forEach(loadFile);
+});
+
+let loadedQ=false,loadedO=false;
+function loadFile(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true,cellNF:false});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const data=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+    const nm=file.name.toUpperCase();
+    if(nm.includes('QUOT')){QUOTES=data;loadedQ=true;updateFileStatus('QUOTATIONS',file.name,true);}
+    else if(nm.includes('ORDER')){ORDERS=data;loadedO=true;updateFileStatus('ORDERS',file.name,true);}
+    else{
+      const cols=Object.keys(data[0]||{});
+      if(cols.includes('Quotation')){ORDERS=data;loadedO=true;updateFileStatus('ORDERS',file.name,true);}
+      else{QUOTES=data;loadedQ=true;updateFileStatus('QUOTATIONS',file.name,true);}
+    }
+    if(loadedQ&&loadedO){
+      const btn=document.getElementById('runBtn');
+      if(btn){btn.disabled=false;btn.textContent='▶ Run MDE';btn.classList.add('ready');}
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function updateFileStatus(type,name,ok){
+  const chips=document.getElementById('fileStatus').children;
+  const idx=type==='QUOTATIONS'?0:1;
+  chips[idx].className=ok?'file-chip':'file-chip pending';
+  chips[idx].textContent=(ok?'✓ ':'')+name;
+}
+function runMDE(){
+  const btn=document.getElementById('runBtn');
+  if(btn){btn.disabled=true;btn.textContent='Processing...';btn.classList.remove('ready');}
+  const errBox=document.getElementById('runError');
+  if(errBox)errBox.style.display='none';
+  onBothLoaded();
+}
+function resetAndLoad(){
+  loadedQ=false;loadedO=false;QUOTES=[];ORDERS=[];
+  const chips=document.getElementById('fileStatus').children;
+  chips[0].className='file-chip pending';chips[0].textContent='QUOTATIONS-YYYYMMDD.xlsx — not loaded';
+  chips[1].className='file-chip pending';chips[1].textContent='ORDERS-YYYYMMDD.xlsx — not loaded';
+  const btn=document.getElementById('runBtn');
+  if(btn){btn.disabled=true;btn.textContent='Waiting for files...';btn.classList.remove('ready');}
+  document.getElementById('uploadScreen').style.display='flex';
+  document.getElementById('dataViews').style.display='none';
+  document.getElementById('fileInput').click();
+}
+function onBothLoaded(){
+  loadStateFromStorage().catch(()=>{PICKUP_STATE={};TASK_STATE={};}).finally(()=>{
+    try{
+      runMDELogic();
+      checkOrphans();
+      document.getElementById('uploadScreen').style.display='none';
+      const dv=document.getElementById('dataViews');
+      dv.style.display='flex';
+      updateStats();updateCounts();switchView('schedule');
+      addAIMessage('ai',`Loaded ${QUOTES.length} quotes and ${ORDERS.length} orders. Schedule queue: ${MDE_SCHEDULE.length} rows. Pickup: ${countPickup()} orders. Tasks: ${MDE_TASKS.length}. Ready — ask me anything.`);
+      const btn=document.getElementById('runBtn');
+      if(btn)btn.textContent='✓ MDE Built';
+    }catch(err){
+      const btn=document.getElementById('runBtn');
+      if(btn){btn.disabled=false;btn.textContent='▶ Run MDE';btn.classList.add('ready');}
+      const errBox=document.getElementById('runError');
+      if(errBox){const stack=err.stack?err.stack.split('\n')[1]:'';errBox.textContent='Error: '+err.message+(stack?' — '+stack.trim():'');errBox.style.display='block';}
+    }
+  });
+}
+function checkOrphans(){
+  const pickupKeys=new Set();
+  Object.values(MDE_PICKUP).forEach(rows=>rows.forEach(r=>pickupKeys.add(cleanKey(r.orderNumber))));
+  const taskKeys=new Set(MDE_TASKS.map(r=>cleanKey(r.quoteNumber)));
+  let n=0;
+  Object.keys(PICKUP_STATE).forEach(k=>{if(!pickupKeys.has(k))n++;});
+  Object.keys(TASK_STATE).forEach(k=>{if(!taskKeys.has(k))n++;});
+  window._orphanCount=n;
+}
+function scheduleAutoSave(saveFn){
+  clearTimeout(saveTimer);showSave('saving');
+  saveTimer=setTimeout(async()=>{await saveFn();showSave('saved');},1000);
+}
+function onPickupFieldInput(orderKey,field,value){
+  if(!PICKUP_STATE[orderKey])PICKUP_STATE[orderKey]={};
+  PICKUP_STATE[orderKey][field]=value;
+  Object.values(MDE_PICKUP).forEach(rows=>{
+    const row=rows.find(r=>cleanKey(r.orderNumber)===orderKey);
+    if(row)row[field]=value;
+  });
+  const copyStrEl=document.getElementById('copystr_'+orderKey);
+  if(copyStrEl)copyStrEl.textContent=buildCopyStr(orderKey);
+  scheduleAutoSave(savePickupState);
+}
+function onTaskCommentInput(quoteKey,value){
+  if(!TASK_STATE[quoteKey])TASK_STATE[quoteKey]={};
+  TASK_STATE[quoteKey].comment=value;
+  const t=MDE_TASKS.find(t=>t.quoteNumber===quoteKey);
+  if(t)t.newComment=value;
+  scheduleAutoSave(saveTaskState);
+}
+async function onTaskCommentBlur(quoteKey,value){
+  if(!TASK_STATE[quoteKey])TASK_STATE[quoteKey]={};
+  if(value.trim())TASK_STATE[quoteKey].commentDate=new Date().toISOString().split('T')[0];
+  TASK_STATE[quoteKey].comment=value;
+  showSave('saving');await saveTaskState();showSave('saved');
+}
+async function onTaskReadyChange(quoteKey,checked){
+  if(!TASK_STATE[quoteKey])TASK_STATE[quoteKey]={};
+  TASK_STATE[quoteKey].ready=checked;
+  const t=MDE_TASKS.find(t=>t.quoteNumber===quoteKey);
+  if(t)t.readyForScheduling=checked;
+  const cb=document.querySelector(`input[data-qk="${quoteKey}"]`);
+  if(cb){const tr=cb.closest('tr');if(tr)tr.className=checked?'task-row-ready':'';}
+  showSave('saving');await saveTaskState();showSave('saved');
+}
+function buildCopyStr(orderKey){
+  let row=null;
+  Object.values(MDE_PICKUP).forEach(rows=>{const found=rows.find(r=>cleanKey(r.orderNumber)===orderKey);if(found)row=found;});
+  if(!row)return'';
+  const parts=[row.normVendor,row.poNumber,row.orderNumber,row.quoteNumber,row.customer,row.refNumber,row.products,row.quantity].filter(v=>v&&String(v).trim());
+  // append any extra product lines (V3.8: now includes REF#)
+  const extras=(PICKUP_STATE[orderKey]&&PICKUP_STATE[orderKey].extraProducts)||[];
+  extras.forEach(ep=>{
+    if(ep&&(ep.refNumber||ep.products||ep.quantity)){
+      const ePart=[ep.refNumber,ep.products,ep.quantity].filter(v=>v&&String(v).trim()).join(' | ');
+      if(ePart)parts.push('+ '+ePart);
+    }
+  });
+  return parts.join(' | ');
+}
+function refreshCopyStrings(){
+  document.querySelectorAll('.copy-output-str').forEach(el=>{
+    const orderKey=el.id.replace('copystr_','');
+    el.textContent=buildCopyStr(orderKey);
+  });
+}
+function copyPickupRow(orderKey,btnId){const str=buildCopyStr(orderKey);if(str)copyText(str,btnId);}
+function copyText(text,btnId){
+  navigator.clipboard.writeText(text).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=text;
+    document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+  });
+  const btn=document.getElementById(btnId);
+  if(btn){btn.textContent='Copied!';btn.classList.add('copied');setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied');},2000);}
+}
+function cleanKey(v){return String(v||'').trim().toUpperCase();}
+function trim(v){return String(v||'').trim();}
+function fmtDate(v){
+  if(!v||v==='')return'';
+  const s=String(v).trim().split('T')[0].split(' ')[0];
+  const clean=s.length>=10?s.substring(0,10):s;
+  const ddmm=clean.match(/^(\d{2})[-\/](\d{2})[-\/](\d{4})$/);
+  if(ddmm)return ddmm[3]+'-'+ddmm[2]+'-'+ddmm[1];
+  return clean;
+}
+function normalizePostalCode(v){
+  const s=String(v||'').trim().toUpperCase().replace(/\s+/g,'');
+  if(!s)return'';
+  if(s.length===6)return s.substring(0,3)+' '+s.substring(3);
+  return s;
+}
+function daysDiff(dateStr){
+  if(!dateStr)return null;
+  const d=new Date(dateStr);const today=new Date();
+  today.setHours(0,0,0,0);d.setHours(0,0,0,0);
+  return Math.round((d-today)/86400000);
+}
+function tuesdayOnOrAfter(d){
+  const dt=new Date(d);if(isNaN(dt.getTime()))return'';
+  const day=dt.getDay();const diff=day===2?0:(day<2?2-day:9-day);
+  dt.setDate(dt.getDate()+diff);return dt.toISOString().split('T')[0];
+}
+function addDays(dateStr,n){
+  const d=new Date(dateStr);if(isNaN(d.getTime()))return'';
+  d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];
+}
+function getNormalizedVendor(desc){
+  if(!desc||String(desc).trim()==='')return'NO VENDOR';
+  const d=String(desc).toUpperCase().replace(/[\s\-]/g,'');
+  let signals=[];
+  if(d.includes('ODL'))signals.push('ODL');
+  if(d==='OLD'||d.includes('OLDCASTLE'))signals.push('OLD');
+  if(d.includes('VITRO'))signals.push('VITRO');
+  if(d.includes('ADFAST'))signals.push('ADFAST');
+  if(d.includes('INSUL'))signals.push('INSUL');
+  if(d==='AGP'||d==='AGB'||d.includes('ALLGLASS'))signals.push('AGP');
+  if(signals.length>1)return'MULTI';
+  if(signals.length===1)return signals[0];
+  return'OTHER';
+}
+function isVendorBold(vendor){return['ODL','OLD','VITRO'].includes(vendor);}
+function isPickupVendor(vendor){return['ODL','OLD','VITRO','ADFAST'].includes(vendor);}
+function isDeliveryVendor(vendor){return['INSUL','AGP'].includes(vendor);}
+function buildOrderMap(orders){
+  const map={},countMap={};
+  orders.forEach(o=>{
+    const qk=cleanKey(o.Quotation||o['Quote Number']||'');if(!qk)return;
+    countMap[qk]=(countMap[qk]||0)+1;
+    const status=String(o.Status||'').toUpperCase();
+    let priority=3;
+    if(status.includes('IN TRANSIT'))priority=1;
+    else if(status.includes('PROCESS')||status.includes('TRANSMIT'))priority=2;
+    const shipDate=fmtDate(o['Shipping Date']);
+    if(!map[qk]){map[qk]={...o,_priority:priority,_shipDate:shipDate};return;}
+    const existing=map[qk];
+    if(priority<existing._priority){map[qk]={...o,_priority:priority,_shipDate:shipDate};return;}
+    if(priority===existing._priority&&shipDate>existing._shipDate)map[qk]={...o,_priority:priority,_shipDate:shipDate};
+  });
+  return{map,countMap};
+}
+function runMDELogic(){
+  const{map:orderMap,countMap}=buildOrderMap(ORDERS);
+  const VALID_STATES=new Set(['1.02','1.03','3.01','3.05','3.06']);
+  const today=new Date();today.setHours(0,0,0,0);
+  MDE_SCHEDULE=[];MDE_TASKS=[];MDE_PICKUP={};
+  QUOTES.forEach(q=>{
+    const qNum=cleanKey(q.Number||q['Quote Number']||'');
+    if(!qNum||HARD_EXCLUDE.has(qNum))return;
+    const statusUpper=trim(q.Status).toUpperCase();
+    const stateRaw=trim(q.State||'');
+    const stateCode=stateRaw.split(/\s/)[0].trim();
+    if(!statusUpper.startsWith('01')&&!statusUpper.startsWith('02')&&!statusUpper.startsWith('03')&&!statusUpper.startsWith('04'))return;
+    if(!VALID_STATES.has(stateCode))return;
+    const order=orderMap[qNum];
+    const orderCount=countMap[qNum]||0;
+    let shipDateVal=order?fmtDate(order['Shipping Date']):'';
+    let orderNum=order?trim(order.Number):'';
+    let orderStatus=order?trim(order.Status):'';
+    let descText=order?trim(order.Description):'';
+    let noteText=order?trim(order.Notes):'';
+    let extraStep=(order&&(order.Pickup===true||order.Pickup==='true'||order.Pickup==='TRUE'||order.Pickup==='1'||order.Pickup===1))?'Pickup':'';
+    const nextAppt=fmtDate(q['Next appointment']||q['Next Appointment']||'');
+    const measureDate=fmtDate(q['Mesure Date']||q['Measure Date']||'');
+    if(orderCount>1){orderNum=orderNum+' *';descText=descText+' ('+orderCount+' orders)';}
+    let cue='',recDate='',layoutSort=99,cueSort=99,dateSort='';
+    switch(stateCode){
+      case'1.03':
+        layoutSort=1;
+        if(nextAppt&&new Date(nextAppt)>=today){cue='Scheduled';cueSort=1;dateSort=nextAppt;}
+        else{cue='Review';cueSort=2;}
+        recDate=nextAppt||measureDate||'';break;
+      case'1.02':layoutSort=2;cue='Book Appointment';cueSort=1;recDate=nextAppt||'';break;
+      case'3.01':layoutSort=3;cue='Book Appointment';cueSort=1;recDate=nextAppt||measureDate||'';break;
+      case'3.06':layoutSort=4;cue='Install Due';cueSort=1;recDate=nextAppt||'';break;
+      case'3.05':
+        layoutSort=5;
+        if(shipDateVal){
+          const normVendor=getNormalizedVendor(descText);
+          recDate=normVendor==='INSUL'?tuesdayOnOrAfter(shipDateVal):addDays(shipDateVal,3);
+          const days=daysDiff(recDate);
+          if(days<=7){cue='Approaching - 1 Week';cueSort=1;}
+          else if(days<=14){cue='Approaching - 2 Weeks';cueSort=2;}
+          else if(days<=21){cue='Approaching - 3 Weeks';cueSort=3;}
+          else{cue='Approaching - 3+ Weeks';cueSort=4;}
+          dateSort=recDate;
+        }else{cue='Processing';cueSort=5;}break;
+    }
+    const normVendor=getNormalizedVendor(descText);
+    // V3.8: Vendor-driven pickup auto-flag — OLD/VITRO/ADFAST always require pickup
+    if(order&&(normVendor==='OLD'||normVendor==='VITRO'||normVendor==='ADFAST'))extraStep='Pickup';
+    const bold=isVendorBold(normVendor)||extraStep==='Pickup';
+    const italic=(stateCode==='1.02'||stateCode==='3.01')&&nextAppt&&new Date(nextAppt)>=today;
+    MDE_SCHEDULE.push({quoteState:stateRaw,stateCode,scheduleCue:cue,quoteNumber:qNum,customer:trim(q.Customer),recommendedDate:recDate,address:trim(q.Street||''),postalCode:normalizePostalCode(q['Postal Code']||q['PostalCode']||''),city:trim(q.City||''),estimatedTime:trim(q['Estimated time']||''),numTechs:trim(q['Number of technicians']||''),orderNumber:orderNum,orderStatus:orderStatus,description:descText,shipDate:shipDateVal,extraStep:extraStep,nextAppointment:nextAppt,assignedTo:trim(q['Assigned to']||q['Assigned To']||''),note:noteText,layoutSort,cueSort,dateSort,bold,italic,normVendor});
+  });
+  MDE_SCHEDULE.sort((a,b)=>{
+    if(a.layoutSort!==b.layoutSort)return a.layoutSort-b.layoutSort;
+    if(a.cueSort!==b.cueSort)return a.cueSort-b.cueSort;
+    if(a.dateSort&&b.dateSort)return a.dateSort.localeCompare(b.dateSort);
+    if(a.dateSort)return-1;if(b.dateSort)return 1;
+    return a.quoteNumber.localeCompare(b.quoteNumber);
+  });
+  QUOTES.forEach(q=>{
+    const qNum=cleanKey(q.Number||'');
+    if(!qNum||HARD_EXCLUDE.has(qNum))return;
+    const stateRaw=trim(q.State||'');
+    const stateCode=stateRaw.split(/\s/)[0].trim();
+    if(stateCode!=='3.10')return;
+    if(!trim(q.Status).toUpperCase().startsWith('03'))return;
+    MDE_TASKS.push({quoteNumber:qNum,customer:trim(q.Customer),state:stateRaw,nextAppointment:fmtDate(q['Next appointment']||''),prevComment:(TASK_STATE[qNum]&&TASK_STATE[qNum].comment)?TASK_STATE[qNum].comment:'',prevCommentDate:(TASK_STATE[qNum]&&TASK_STATE[qNum].commentDate)?TASK_STATE[qNum].commentDate:'',newComment:'',readyForScheduling:(TASK_STATE[qNum]&&TASK_STATE[qNum].ready)?true:false});
+  });
+  MDE_TASKS.sort((a,b)=>a.quoteNumber.localeCompare(b.quoteNumber));
+  ORDERS.forEach(o=>{
+    const status=String(o.Status||'').toUpperCase();
+    const isShipped=status.includes('SHIPPED');
+    const isProcessing=status.includes('PROCESS')||status.includes('TRANSMIT');
+    const isInTransit=status.includes('IN TRANSIT');
+    if(isShipped)return;
+    if(!isProcessing&&!isInTransit)return;
+    const descVal=trim(o.Description);
+    const normVendor=getNormalizedVendor(descVal);
+    const pickupChecked=(o.Pickup===true||o.Pickup==='true'||o.Pickup==='TRUE'||o.Pickup==='1'||o.Pickup===1)||(['OLD','VITRO','ADFAST'].includes(getNormalizedVendor(trim(o.Description))));
+    const shipDate=fmtDate(o['Shipping Date']);
+    const shipMissing=!shipDate;
+    let flags=[];
+    if(normVendor==='MULTI')flags.push('Multiple vendors');
+    if(normVendor==='OTHER')flags.push('Unknown vendor');
+    if(normVendor==='NO VENDOR')flags.push('No vendor');
+    if(shipMissing&&isInTransit&&!isDeliveryVendor(normVendor))flags.push('Missing ship date');
+    if(normVendor==='INSUL'&&pickupChecked)flags.push('INSUL + pickup checked');
+    if(normVendor==='AGP'&&pickupChecked)flags.push('AGP + pickup checked');
+    if(isDeliveryVendor(normVendor)&&!pickupChecked&&flags.length===0)return;
+    let section='Pickup Verification';
+    switch(normVendor){
+      case'ODL':section='ODL Pickup Orders';break;
+      case'OLD':section='OLD Pickup Orders';break;
+      case'VITRO':section='VITRO Pickup Orders';break;
+      case'ADFAST':section='ADFAST Pickup Orders';break;
+    }
+    if(!MDE_PICKUP[section])MDE_PICKUP[section]=[];
+    const notesRaw=trim(o.Notes||'');
+    let poVal='',poNeedsReview=false;
+    const m1=notesRaw.match(/(CALGPO|CLGPO|CALG|CLG|PO)\s*-?\s*(\d{3,6})/i);
+    if(m1){poVal='CALGPO-'+String(parseInt(m1[2])).padStart(5,'0');}
+    else{const m2=notesRaw.match(/(\d{3,6})/);if(m2){poVal='CALGPO-'+String(parseInt(m2[1])).padStart(5,'0');poNeedsReview=true;}else{poNeedsReview=notesRaw.length>0;}}
+    const oKey=cleanKey(trim(o.Number));
+    const saved=PICKUP_STATE[oKey]||{};
+    MDE_PICKUP[section].push({orderNumber:trim(o.Number),quoteNumber:cleanKey(o.Quotation||''),customer:trim(o.Customer),pickupBookedDate:saved.pickupDate||'',shipDate,status:trim(o.Status),description:trim(o.Description),pickupLocation:trim(o.Description),normVendor,notes:notesRaw,poNumber:poVal,poNeedsReview,refNumber:saved.refNumber||'',products:saved.products||'',quantity:saved.quantity||trim(o['Products Quantity']||''),flagStatus:flags.join(' | ')});
+  });
+}
+function countPickup(){return Object.values(MDE_PICKUP).reduce((s,v)=>s+v.length,0);}
+function updateStats(){
+  document.getElementById('s-queue').textContent=MDE_SCHEDULE.length;
+  document.getElementById('s-install').textContent=MDE_SCHEDULE.filter(r=>r.stateCode==='3.06').length;
+  document.getElementById('s-pickup').textContent=countPickup();
+  document.getElementById('s-tasks').textContent=MDE_TASKS.length;
+  document.getElementById('s-total').textContent=QUOTES.length;
+}
+function updateCounts(){
+  document.getElementById('cnt-schedule').textContent=MDE_SCHEDULE.length;
+  document.getElementById('cnt-pickup').textContent=countPickup();
+  document.getElementById('cnt-tasks').textContent=MDE_TASKS.length;
+  updateTargetCounter();
+}
+function syncScrollTop(){
+  const scrollTop=document.getElementById('scrollTop');
+  const scrollTopInner=document.getElementById('scrollTopInner');
+  const viewArea=document.getElementById('viewArea');
+  if(!scrollTop||!scrollTopInner||!viewArea)return;
+  setTimeout(()=>{
+    scrollTopInner.style.width=viewArea.scrollWidth+'px';
+    let syncing=false;
+    scrollTop.onscroll=()=>{if(syncing)return;syncing=true;viewArea.scrollLeft=scrollTop.scrollLeft;syncing=false;};
+    viewArea.onscroll=()=>{if(syncing)return;syncing=true;scrollTop.scrollLeft=viewArea.scrollLeft;syncing=false;};
+  },50);
+}
+function toggleSection(sectionId,btn){
+  const rows=document.querySelectorAll(`tr[data-section="${sectionId}"]`);
+  const tog=btn?btn.querySelector('.tog'):null;
+  let hidden=false;
+  rows.forEach(r=>{
+    if(r.classList.contains('section-header'))return;
+    r.classList.toggle('section-data-hidden');
+    if(r.classList.contains('section-data-hidden'))hidden=true;
+  });
+  if(tog)tog.classList.toggle('closed',hidden);
+}
+function toggleSubSection(subKey,btn,event){
+  if(event)event.stopPropagation();
+  const rows=document.querySelectorAll(`tr[data-subsection="${subKey}"]`);
+  const tog=btn?btn.querySelector('.tog'):null;
+  let hidden=false;
+  rows.forEach(r=>{
+    if(r.classList.contains('sub-section-header'))return;
+    r.classList.toggle('section-data-hidden');
+    if(r.classList.contains('section-data-hidden'))hidden=true;
+  });
+  if(tog)tog.classList.toggle('closed',hidden);
+}
+function getSubSection(r){
+  if(r.stateCode==='1.03')return r.scheduleCue==='Scheduled'?'sub-1-scheduled':'sub-1-review';
+  if(r.stateCode==='3.05'){
+    if(r.scheduleCue==='Approaching - 1 Week')return'sub-5-1week';
+    if(r.scheduleCue==='Processing')return'sub-5-processing';
+    return'sub-5-2plus';
+  }
+  return null;
+}
+function toggleAIPanel(){
+  const panel=document.querySelector('.ai-panel');
+  const bodyDiv=document.getElementById('aiPanelBody');
+  const btn=document.getElementById('aiCollapseBtn');
+  const isCollapsed=panel.getAttribute('data-collapsed')==='true';
+  if(isCollapsed){panel.setAttribute('data-collapsed','false');panel.style.width='320px';panel.style.minWidth='320px';if(bodyDiv)bodyDiv.style.display='flex';if(btn)btn.textContent='›';}
+  else{panel.setAttribute('data-collapsed','true');panel.style.width='36px';panel.style.minWidth='36px';if(bodyDiv)bodyDiv.style.display='none';if(btn)btn.textContent='‹';}
+}
+function toggleSidebar(){
+  const sidebar=document.getElementById('appSidebar');
+  const btn=document.getElementById('sidebarCollapseBtn');
+  if(!sidebar)return;
+  sidebar.classList.toggle('collapsed');
+  btn.textContent=sidebar.classList.contains('collapsed')?'›':'‹';
+  btn.title=sidebar.classList.contains('collapsed')?'Expand navigation':'Collapse navigation';
+}
+function switchView(view){
+  currentView=view;
+  ['schedule','pickup','tasks','target'].forEach(v=>{const el=document.getElementById('nav-'+v);if(el)el.classList.toggle('active',v===view);});
+  document.getElementById('searchBox').style.display=view==='tasks'?'none':'';
+  document.getElementById('stateFilter').style.display=view==='schedule'?'':'none';
+  const va=document.getElementById('viewArea');
+  if(va)va.classList.toggle('target-active',view==='target');
+  applySearch();
+}
+function applySearch(){
+  const q=document.getElementById('searchBox').value.toLowerCase();
+  const sf=document.getElementById('stateFilter').value;
+  if(currentView==='schedule')renderSchedule(q,sf);
+  else if(currentView==='pickup')renderPickup(q);
+  else if(currentView==='target')renderTarget();
+  else renderTasks();
+}
+function cueBadge(cue){
+  const map={'Install Due':'badge-green','Scheduled':'badge-blue','Book Appointment':'badge-purple','Review':'badge-amber','Approaching - 1 Week':'badge-red','Approaching - 2 Weeks':'badge-amber','Approaching - 3 Weeks':'badge-amber','Approaching - 3+ Weeks':'badge-gray','Processing':'badge-gray','Task to Complete':'badge-red'};
+  return`<span class="badge ${map[cue]||'badge-gray'}">${cue||'—'}</span>`;
+}
+function stateBadge(state){
+  const s=state.split(' ')[0];
+  const map={'1.02':'badge-blue','1.03':'badge-blue','3.01':'badge-purple','3.05':'badge-amber','3.06':'badge-green','3.10':'badge-red'};
+  return`<span class="badge ${map[s]||'badge-gray'}">${state||'—'}</span>`;
+}
+function orderStatusBadge(s){
+  if(!s)return'<span class="badge badge-gray">—</span>';
+  const u=s.toUpperCase();
+  if(u.includes('SHIP'))return`<span class="badge badge-green">${s}</span>`;
+  if(u.includes('IN TRANSIT'))return`<span class="badge badge-amber">${s}</span>`;
+  if(u.includes('PROCESS')||u.includes('TRANSMIT'))return`<span class="badge badge-blue">${s}</span>`;
+  return`<span class="badge badge-gray">${s}</span>`;
+}
+function vendorBadge(v){
+  const map={'ODL':'badge-amber','OLD':'badge-amber','VITRO':'badge-amber','ADFAST':'badge-amber','INSUL':'badge-blue','AGP':'badge-blue','MULTI':'badge-red','OTHER':'badge-flag','NO VENDOR':'badge-flag'};
+  return`<span class="badge ${map[v]||'badge-gray'}">${v}</span>`;
+}
+function renderSchedule(search,stateFilter){
+  let rows=MDE_SCHEDULE;
+  if(search)rows=rows.filter(r=>r.customer.toLowerCase().includes(search)||r.quoteNumber.toLowerCase().includes(search)||r.address.toLowerCase().includes(search)||r.scheduleCue.toLowerCase().includes(search)||r.postalCode.toLowerCase().includes(search));
+  if(stateFilter)rows=rows.filter(r=>r.stateCode===stateFilter);
+  document.getElementById('rowCount').textContent=rows.length+' rows';
+  const sectionLabels={'1':'1.02 / 1.03 Estimate & Quotation','2':'1.02 Book Appointment','3':'3.01 Measurement','4':'3.06 Install Due','5':'3.05 Order Follow-Up'};
+  let html=`<div class="mde-table-wrap"><table class="mde-table"><thead><tr>
+    <th style="width:32px"></th>
+    <th>Quote State</th><th>Schedule Cue</th><th>Quote #</th><th>Customer</th>
+    <th>Rec. Date</th><th>Address</th><th>Postal</th><th>City</th>
+    <th>Est. Time</th><th># Techs</th><th>Order #</th><th>Order Status</th>
+    <th>Description</th><th>Ship Date</th><th>Extra Step</th><th>Next Appt</th>
+    <th>Assigned To</th><th>Note</th>
+  </tr></thead><tbody>`;
+  if(!rows.length)html+=`<tr><td colspan="19" style="text-align:center;padding:40px;color:var(--text3)">No records match your filters</td></tr>`;
+  let lastSection=null,lastSubSection=null;
+  const sectionIds={'1':'sec-1','2':'sec-2','3':'sec-3','4':'sec-4','5':'sec-5'};
+  const subSectionLabels={'sub-1-scheduled':'Scheduled','sub-1-review':'Review','sub-5-1week':'Approaching — 1 Week','sub-5-2plus':'Approaching — 2+ Weeks','sub-5-processing':'Processing'};
+  rows.forEach(r=>{
+    const secId=sectionIds[r.layoutSort]||('sec-'+r.layoutSort);
+    const subKey=getSubSection(r);
+    if(r.layoutSort!==lastSection){
+      lastSection=r.layoutSort;lastSubSection=null;
+      const label=sectionLabels[r.layoutSort]||r.quoteState;
+      html+=`<tr class="section-header" data-section="${secId}" onclick="toggleSection('${secId}',this)"><td colspan="19"><input type="checkbox" class="section-select-chk" data-section-id="${secId}" onclick="event.stopPropagation();toggleSectionSelect('${secId}',this.checked)" style="margin-right:8px;vertical-align:middle;cursor:pointer;accent-color:#fff" title="Select all in this section"><span class="tog">▼</span>${label}</td></tr>`;
+    }
+    if(subKey&&subKey!==lastSubSection){
+      lastSubSection=subKey;
+      html+=`<tr class="sub-section-header" data-subsection="${subKey}" data-section="${secId}" onclick="toggleSubSection('${subKey}',this,event)"><td colspan="19"><input type="checkbox" class="subsection-select-chk" data-subsection-id="${subKey}" onclick="event.stopPropagation();toggleSubSectionSelect('${subKey}',this.checked)" style="margin-right:8px;vertical-align:middle;cursor:pointer;accent-color:#fff" title="Select all in this sub-section"><span class="tog">▼</span>${subSectionLabels[subKey]||subKey}</td></tr>`;
+    }
+    const rowClass=[r.bold?'row-bold':'',r.italic?'row-italic':''].filter(Boolean).join(' ');
+    const rowAttrs=subKey?`data-section="${secId}" data-subsection="${subKey}"`:`data-section="${secId}"`;
+    const isTargeted=TARGETED_JOBS.has(r.quoteNumber);
+    html+=`<tr class="${rowClass}" ${rowAttrs}>
+      <td style="text-align:center;padding:4px"><input type="checkbox" class="target-chk" ${isTargeted?'checked':''} onchange="toggleTarget('${r.quoteNumber}',this.checked)" onclick="event.stopPropagation()"></td>
+      <td>${stateBadge(r.quoteState)}</td><td>${cueBadge(r.scheduleCue)}</td>
+      <td class="mono-sm">${r.quoteNumber}</td>
+      <td style="min-width:160px;white-space:normal">${r.customer}</td>
+      <td class="mono-sm">${r.recommendedDate||'—'}</td>
+      <td style="min-width:180px;white-space:normal">${r.address||'—'}</td>
+      <td class="mono-sm">${r.postalCode||'—'}</td><td>${r.city||'—'}</td>
+      <td class="mono-sm">${r.estimatedTime||'—'}</td>
+      <td class="mono-sm" style="text-align:center">${r.numTechs||'—'}</td>
+      <td class="mono-sm">${r.orderNumber||'—'}</td>
+      <td>${orderStatusBadge(r.orderStatus)}</td>
+      <td style="min-width:120px;white-space:normal">${r.description||'—'} ${r.normVendor&&r.normVendor!=='NO VENDOR'?vendorBadge(r.normVendor):''}</td>
+      <td class="mono-sm">${r.shipDate||'—'}</td>
+      <td>${r.extraStep&&r.extraStep!=='N/A'?`<span class="badge pickup-badge">${r.extraStep}</span>`:(r.extraStep||'—')}</td>
+      <td class="mono-sm">${r.nextAppointment||'—'}</td>
+      <td>${r.assignedTo||'—'}</td>
+      <td style="min-width:120px;white-space:normal;font-size:11px;color:var(--text3)">${r.note||''}</td>
+    </tr>`;
+  });
+  const taskRows=MDE_TASKS;
+  if(taskRows.length>0&&!stateFilter){
+    html+=`<tr class="task-header"><td colspan="19">&#9660; Task to Complete — Ready for Scheduling</td></tr>`;
+    const{map:orderMap2}=buildOrderMap(ORDERS);
+    const readyRows=taskRows.filter(t=>t.readyForScheduling);
+    if(!readyRows.length){
+      html+=`<tr class="task-section-empty"><td colspan="19" style="padding:10px;font-style:italic;color:var(--text3)">No tasks currently marked Ready for Scheduling</td></tr>`;
+    }else{
+      readyRows.forEach(t=>{
+        const q=QUOTES.find(q=>cleanKey(q.Number||'')===t.quoteNumber);if(!q)return;
+        const ord=orderMap2[t.quoteNumber];
+        const shipD=ord?fmtDate(ord['Shipping Date']):'';
+        const ordNum=ord?trim(ord.Number):'';
+        const ordStatus=ord?trim(ord.Status):'';
+        const desc=ord?trim(ord.Description):'';
+        const noteT=ord?trim(ord.Notes||''):'';
+        const exStep=(ord&&(ord.Pickup===true||ord.Pickup==='true'||ord.Pickup==='TRUE'||ord.Pickup==='1'||ord.Pickup===1))?'Pickup':'';
+        const normV=getNormalizedVendor(desc);
+        html+=`<tr class="task-section-row">
+          <td></td><td>${stateBadge(t.state)}</td><td>${cueBadge('Task to Complete')}</td>
+          <td class="mono-sm">${t.quoteNumber}</td>
+          <td style="white-space:normal;min-width:160px">${t.customer}</td>
+          <td class="mono-sm">Current</td>
+          <td style="min-width:180px;white-space:normal">${trim(q.Street||'')||'—'}</td>
+          <td class="mono-sm">${normalizePostalCode(q['Postal Code']||q['PostalCode']||'')||'—'}</td>
+          <td>${trim(q.City||'')||'—'}</td>
+          <td class="mono-sm">${trim(q['Estimated time']||'')||'—'}</td>
+          <td class="mono-sm" style="text-align:center">${trim(q['Number of technicians']||'')||'—'}</td>
+          <td class="mono-sm">${ordNum||'—'}</td><td>${orderStatusBadge(ordStatus)}</td>
+          <td style="min-width:120px;white-space:normal">${desc||'—'} ${normV&&normV!=='NO VENDOR'?vendorBadge(normV):''}</td>
+          <td class="mono-sm">${shipD||'—'}</td>
+          <td>${exStep?`<span class="badge pickup-badge">${exStep}</span>`:'—'}</td>
+          <td class="mono-sm">${t.nextAppointment||'—'}</td>
+          <td>${trim(q['Assigned to']||q['Assigned To']||'')||'—'}</td>
+          <td style="min-width:120px;white-space:normal;font-size:11px;color:var(--text3)">${noteT||''}</td>
+        </tr>`;
+      });
+    }
+  }
+  html+=`</tbody></table></div>`;
+  document.getElementById('viewArea').innerHTML=html;
+  syncScrollTop();
+}
+function renderPickup(search){
+  const sectionOrder=['ODL Pickup Orders','OLD Pickup Orders','VITRO Pickup Orders','ADFAST Pickup Orders','Pickup Verification'];
+  document.getElementById('rowCount').textContent=countPickup()+' orders';
+  const copyData={};sectionOrder.forEach(s=>copyData[s]=[]);
+  let html=`<div class="mde-table-wrap"><table class="mde-table"><thead><tr>
+    <th>Vendor</th><th style="background:#fffbeb;color:#92400e">Pickup Booked</th>
+    <th>Ship Date</th><th>Order #</th><th>Quote #</th><th>Customer</th>
+    <th>Status</th><th>Pickup Location</th><th>Notes</th><th>PO Number</th>
+    <th style="background:#fffbeb;color:#92400e">REF #</th>
+    <th style="background:#fffbeb;color:#92400e">Products</th>
+    <th style="background:#fffbeb;color:#92400e">Quantity</th>
+    <th style="background:#f0fdf4;color:#15803d">+ Products</th>
+    <th>Flag Status</th>
+  </tr></thead><tbody>`;
+  let totalShown=0;
+  sectionOrder.forEach(section=>{
+    let rows=MDE_PICKUP[section];if(!rows||!rows.length)return;
+    if(search)rows=rows.filter(r=>r.customer.toLowerCase().includes(search)||r.orderNumber.toLowerCase().includes(search)||r.quoteNumber.toLowerCase().includes(search)||r.normVendor.toLowerCase().includes(search));
+    if(!rows.length)return;
+    totalShown+=rows.length;
+    rows.forEach(r=>copyData[section].push(r));
+    html+=`<tr class="vendor-header-row"><td colspan="15">${section}<span class="vendor-count">${rows.length} order${rows.length>1?'s':''}</span></td></tr>`;
+    rows.forEach(r=>{
+      const ok=cleanKey(r.orderNumber);
+      const boldClass=isVendorBold(r.normVendor)?'row-bold':'';
+      const poCell=r.poNeedsReview
+        ?`<td class="po-uncertain mono-sm" title="PO uncertain — verify manually">${r.poNumber||'—'} ⚠</td>`
+        :`<td class="mono-sm">${r.poNumber||'—'}</td>`;
+      html+=`<tr class="${boldClass}">
+        <td>${vendorBadge(r.normVendor)}</td>
+        <td style="background:var(--yellow-field);min-width:120px">
+          <div class="date-display ${r.pickupBookedDate?'has-date':''}" onclick="openCalendar(event,'${ok}')" title="Click to set pickup date">
+            📅 <span id="dd_${ok}">${r.pickupBookedDate||'—'}</span>
+          </div>
+        </td>
+        <td class="mono-sm">${r.shipDate||'—'}</td>
+        <td class="mono-sm">${r.orderNumber}</td>
+        <td class="mono-sm">${r.quoteNumber}</td>
+        <td style="min-width:160px;white-space:normal">${r.customer}</td>
+        <td>${orderStatusBadge(r.status)}</td>
+        <td class="pickup-loc-cell">${r.pickupLocation||'—'}</td>
+        <td style="min-width:140px;white-space:normal;font-size:11px;color:var(--text3)">${r.notes||''}</td>
+        ${poCell}
+        <td style="background:var(--yellow-field);min-width:100px">
+          <input class="yellow-input" type="text" value="${(r.refNumber||'').replace(/"/g,'&quot;')}" placeholder="REF #"
+            oninput="onPickupFieldInput('${ok}','refNumber',this.value)">
+        </td>
+        <td style="background:var(--yellow-field);min-width:130px">
+          <input class="yellow-input" type="text" value="${(r.products||'').replace(/"/g,'&quot;')}" placeholder="Products"
+            oninput="onPickupFieldInput('${ok}','products',this.value)">
+        </td>
+        <td style="background:var(--yellow-field);min-width:70px">
+          <input class="yellow-input" type="text" value="${(r.quantity||'').replace(/"/g,'&quot;')}" placeholder="Qty"
+            oninput="onPickupFieldInput('${ok}','quantity',this.value)">
+        </td>
+        <td style="background:#f0fdf4;text-align:center;padding:4px">
+          <button class="mp-add-btn" onclick="addMultiProductRow('${ok}')" title="Add product line">+</button>
+        </td>
+        <td>${r.flagStatus?`<span class="badge badge-flag">${r.flagStatus}</span>`:''}</td>
+      </tr>`;
+      // Render any existing extra product rows
+      const extraProds=(PICKUP_STATE[ok]&&PICKUP_STATE[ok].extraProducts)||[];
+      extraProds.forEach((ep,idx)=>{
+        html+=`<tr class="mp-row" id="mp-row-${ok}-${idx}">
+          <td colspan="10"></td>
+          <td style="background:#fffbeb;min-width:80px">
+            <input class="yellow-input" type="text" value="${(ep.refNumber||'').replace(/"/g,'&quot;')}" placeholder="REF # (line ${idx+2})"
+              oninput="onMpFieldInput('${ok}',${idx},'refNumber',this.value)">
+          </td>
+          <td style="background:#f0fdf4;min-width:130px">
+            <input class="yellow-input" type="text" value="${(ep.products||'').replace(/"/g,'&quot;')}" placeholder="Products"
+              oninput="onMpFieldInput('${ok}',${idx},'products',this.value)">
+          </td>
+          <td style="background:#f0fdf4;min-width:70px">
+            <input class="yellow-input" type="text" value="${(ep.quantity||'').replace(/"/g,'&quot;')}" placeholder="Qty"
+              oninput="onMpFieldInput('${ok}',${idx},'quantity',this.value)">
+          </td>
+          <td style="background:#f0fdf4;text-align:center">
+            <button class="mp-remove-btn" onclick="removeMultiProductRow('${ok}',${idx})" title="Remove line">✕</button>
+          </td>
+          <td></td>
+        </tr>`;
+      });
+    });
+  });
+  if(!totalShown)html+=`<tr><td colspan="15" style="text-align:center;padding:40px;color:var(--text3)">No pickup orders found</td></tr>`;
+  html+=`<tr><td colspan="15" style="height:20px;background:var(--bg)"></td></tr>`;
+  html+=`<tr class="copy-section-title"><td colspan="15">Quick Copy / Paste Output</td></tr>`;
+  html+=`<tr><td colspan="14" style="height:8px;background:var(--bg)"></td></tr>`;
+  sectionOrder.forEach(section=>{
+    const rows=copyData[section];
+    const label=section.replace(' Pickup Orders','');
+    html+=`<tr class="copy-group-hdr"><td colspan="15">${label} Orders (${rows.length})</td></tr>`;
+    html+=`<tr><th style="font-size:10px">Vendor</th><th style="font-size:10px">Ship Date</th><th style="font-size:10px">Order #</th><th style="font-size:10px">Quote #</th><th style="font-size:10px">Customer</th><th colspan="10" style="font-size:10px;background:#ede9fe;color:#3d3d7a">Copy Output</th></tr>`;
+    if(!rows.length){html+=`<tr><td colspan="15" style="padding:8px 10px;font-size:11px;color:var(--text3);font-style:italic">No orders in this section</td></tr>`;}
+    else{
+      rows.forEach(r=>{
+        const btnId='cbtn_'+cleanKey(r.orderNumber);
+        const orderKey=cleanKey(r.orderNumber);
+        html+=`<tr>
+          <td>${vendorBadge(r.normVendor)}</td>
+          <td class="mono-sm">${r.shipDate||'—'}</td>
+          <td class="mono-sm">${r.orderNumber}</td>
+          <td class="mono-sm">${r.quoteNumber}</td>
+          <td style="white-space:normal">${r.customer}</td>
+          <td colspan="10" class="copy-output-cell">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button class="copy-btn" id="${btnId}" onclick="copyPickupRow('${orderKey}','${btnId}')">Copy</button>
+              <span class="copy-output-str" id="copystr_${orderKey}" style="font-size:11px;font-family:var(--mono);color:#3d3d7a"></span>
+            </div>
+          </td>
+        </tr>`;
+      });
+    }
+    html+=`<tr><td colspan="14" style="height:10px;background:var(--bg)"></td></tr>`;
+  });
+  html+=`<tr><td colspan="15" style="height:20px;background:var(--bg)"></td></tr>`;
+  html+=`<tr><td colspan="15" style="background:#1f497d;color:#fff;font-weight:700;font-size:14px;padding:10px 14px;text-align:center">Pickup Reference Guide</td></tr>`;
+  const refNotes=[['Row Qualifies If','Status is Processing, In Transit, or Transmitted'],['','Ship date is current or future — OR — ship date missing and order is active'],['','Shipped = excluded (assumed received, no longer requires pickup action)'],['Pickup / Delivery','Assumed pickup: ODL, OLD, Vitro, Adfast — included by default'],['','Assumed delivery: Insullite, AGP / All Glass Parts — included only if Pickup checkbox checked'],['Pickup Verification','Review queue — not an error bucket'],['','Rows land here when: unknown vendor, multiple vendor signals, delivery vendor + pickup checked, PO unclear'],['PO Number','Program-derived from Notes field — normalized to CALGPO-XXXXX format'],['','Grey cell = extraction uncertain, needs manual confirmation'],['Pickup Booked Date','Yellow column — enter date when pickup is booked — saved to memory'],['Manual Fields','REF Number, Products, Quantity — yellow highlighted, preserved across rebuilds']];
+  refNotes.forEach(([label,note])=>{
+    html+=`<tr><td colspan="2" style="font-weight:${label?'700':'400'};font-size:11px;padding:5px 10px;white-space:normal">${label}</td><td colspan="13" style="font-size:11px;color:#595959;font-style:italic;padding:5px 10px;white-space:normal">${note}</td></tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  document.getElementById('viewArea').innerHTML=html;
+  syncScrollTop();refreshCopyStrings();
+}
+function renderTasks(){
+  document.getElementById('rowCount').textContent=MDE_TASKS.length+' tasks';
+  const orphanNote=(window._orphanCount>0)?`<div class="orphan-inline">ℹ ${window._orphanCount} saved record${window._orphanCount>1?'s':''} not in current export — may have completed or changed state.</div>`:'';
+  let html=orphanNote+`<div class="mde-table-wrap"><table class="mde-table"><thead><tr>
+    <th>Quote #</th><th>Customer</th><th>State</th><th>Next Appt</th>
+    <th>Previous Comment</th><th>Comment Date</th>
+    <th style="background:#fffbeb;color:#92400e">New Comment</th>
+    <th style="background:#fffbeb;color:#92400e">Ready for Scheduling</th>
+  </tr></thead><tbody>`;
+  if(!MDE_TASKS.length)html+=`<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text3)">No 3.10 tasks found (state 3.10, status 03-APPROVED only)</td></tr>`;
+  MDE_TASKS.forEach(r=>{
+    const qk=r.quoteNumber;
+    const rowCls=r.readyForScheduling?'task-row-ready':'';
+    html+=`<tr class="${rowCls}">
+      <td class="mono-sm">${r.quoteNumber}</td>
+      <td style="white-space:normal;min-width:160px">${r.customer}</td>
+      <td>${stateBadge(r.state)}</td>
+      <td class="mono-sm">${r.nextAppointment||'—'}</td>
+      <td class="task-comment-cell" style="color:#595959;font-style:italic;min-width:180px;white-space:normal;max-width:280px">${r.prevComment||'—'}</td>
+      <td class="mono-sm" style="color:#595959;font-style:italic">${r.prevCommentDate||'—'}</td>
+      <td style="background:var(--yellow-field);min-width:220px">
+        <input class="yellow-input" type="text" value="${(r.newComment||'').replace(/"/g,'&quot;')}"
+          placeholder="Add comment..."
+          oninput="onTaskCommentInput('${qk}',this.value)"
+          onblur="onTaskCommentBlur('${qk}',this.value)">
+      </td>
+      <td style="background:var(--yellow-field);text-align:center">
+        <input type="checkbox" class="ready-checkbox" data-qk="${qk}" ${r.readyForScheduling?'checked':''}
+          onchange="onTaskReadyChange('${qk}',this.checked)">
+      </td>
+    </tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  document.getElementById('viewArea').innerHTML=html;
+}
+function buildAIContext(){
+  const schedSummary=MDE_SCHEDULE.map(r=>`${r.quoteNumber}|${r.customer}|${r.stateCode}|${r.scheduleCue}|${r.recommendedDate||''}|${r.address}|${r.postalCode}|${r.estimatedTime||''}|${r.numTechs||''}|${r.orderNumber||''}|${r.shipDate||''}|${r.extraStep||''}|${r.normVendor}`).join('\n');
+  const pickupSummary=Object.entries(MDE_PICKUP).map(([section,rows])=>rows.map(r=>`${r.orderNumber}|${r.quoteNumber}|${r.customer}|${r.normVendor}|${r.shipDate||''}|${r.status}|${r.flagStatus||''}`).join('\n')).join('\n');
+  const taskSummary=MDE_TASKS.map(r=>`${r.quoteNumber}|${r.customer}|${r.nextAppointment||''}|${r.readyForScheduling?'READY':'PENDING'}|${r.prevComment||''}`).join('\n');
+  const readyCount=MDE_TASKS.filter(t=>t.readyForScheduling).length;
+  return`You are BASCO AI — the internal intelligence engine for Basco Calgary Window Repairs.
+Today: ${new Date().toLocaleDateString('en-CA')}.
+
+DATA LOADED:
+  Quotes: ${QUOTES.length} | Orders: ${ORDERS.length}
+  Schedule queue: ${MDE_SCHEDULE.length} | Pickup orders: ${countPickup()} | Tasks: ${MDE_TASKS.length}
+  Ready for scheduling: ${readyCount} | Install Due (3.06): ${MDE_SCHEDULE.filter(r=>r.stateCode==='3.06').length}
+
+SCHEDULE ROWS (QuoteNum|Customer|State|Cue|RecDate|Address|Postal|EstTime|Techs|OrderNum|ShipDate|ExtraStep|Vendor):
+${schedSummary}
+
+PICKUP ORDERS (OrderNum|QuoteNum|Customer|Vendor|ShipDate|Status|Flags):
+${pickupSummary}
+
+TASK TO COMPLETE (QuoteNum|Customer|NextAppt|Status|LastComment):
+${taskSummary}
+
+Answer concisely and accurately. You know Basco's state logic, vendor normalization, and MDE structure. Be specific with quote numbers. Never guess.`;
+}
+function addAIMessage(role,text){
+  const msgs=document.getElementById('aiMessages');
+  const div=document.createElement('div');
+  div.className=`ai-msg ai-msg-${role}`;
+  div.innerHTML=`<div class="ai-msg-label">${role==='user'?'You':'BASCO AI'}</div><div class="ai-bubble">${text.replace(/\n/g,'<br>')}</div>`;
+  msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;return div;
+}
+function addAILoader(){
+  const msgs=document.getElementById('aiMessages');
+  const div=document.createElement('div');
+  div.className='ai-msg ai-msg-ai';
+  div.innerHTML=`<div class="ai-msg-label">BASCO AI</div><div class="ai-bubble ai-loading"><div class="ai-dots"><span></span><span></span><span></span></div></div>`;
+  msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;return div;
+}
+function askAI(el){document.getElementById('aiInput').value=el.textContent;sendAIMessage();}
+function handleAIKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAIMessage();}}
+async function sendAIMessage(){
+  const input=document.getElementById('aiInput');
+  const text=input.value.trim();if(!text)return;
+  if(!QUOTES.length){addAIMessage('ai','Please load your ERP exports first.');return;}
+  input.value='';
+  addAIMessage('user',text);
+  aiConversation.push({role:'user',content:text});
+  const loader=addAILoader();
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildAIContext(),messages:aiConversation.slice(-20)})
+    });
+    const data=await resp.json();
+    const reply=(data.content&&data.content[0])?data.content[0].text:'No response received.';
+    loader.remove();addAIMessage('ai',reply);
+    aiConversation.push({role:'assistant',content:reply});
+    if(aiConversation.length>30)aiConversation=aiConversation.slice(-30);
+  }catch(err){loader.remove();addAIMessage('ai','Connection error. Check your network and try again.');}
+}
+let calTarget=null,calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
+function openCalendar(event,orderKey){
+  event.stopPropagation();calTarget=orderKey;
+  const saved=PICKUP_STATE[orderKey]&&PICKUP_STATE[orderKey].pickupDate;
+  if(saved){const d=new Date(saved+'T00:00:00');calYear=d.getFullYear();calMonth=d.getMonth();}
+  else{calYear=new Date().getFullYear();calMonth=new Date().getMonth();}
+  buildCalendar();
+  const popup=document.getElementById('calendarPopup');
+  popup.classList.add('open');
+  const rect=event.target.closest('.date-display').getBoundingClientRect();
+  popup.style.top=(rect.bottom+4)+'px';
+  popup.style.left=Math.min(rect.left,window.innerWidth-234)+'px';
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#calendarPopup')&&!e.target.closest('.date-display'))
+    document.getElementById('calendarPopup').classList.remove('open');
+});
+function calNav(dir){
+  calMonth+=dir;
+  if(calMonth>11){calMonth=0;calYear++;}
+  if(calMonth<0){calMonth=11;calYear--;}
+  buildCalendar();
+}
+function buildCalendar(){
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent=months[calMonth]+' '+calYear;
+  const firstDay=new Date(calYear,calMonth,1).getDay();
+  const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  const today=new Date();today.setHours(0,0,0,0);
+  const savedDate=calTarget&&PICKUP_STATE[calTarget]&&PICKUP_STATE[calTarget].pickupDate;
+  let html=['Su','Mo','Tu','We','Th','Fr','Sa'].map(d=>`<div class="cal-day-hdr">${d}</div>`).join('');
+  for(let i=0;i<firstDay;i++)html+=`<div class="cal-day empty"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dt=new Date(calYear,calMonth,d);
+    let cls='cal-day';
+    if(dt.getTime()===today.getTime())cls+=' is-today';
+    if(savedDate===ds)cls+=' is-selected';
+    html+=`<div class="${cls}" onclick="selectDate('${ds}')">${d}</div>`;
+  }
+  document.getElementById('calGrid').innerHTML=html;
+}
+function selectDate(dateStr){
+  if(!calTarget)return;
+  if(!PICKUP_STATE[calTarget])PICKUP_STATE[calTarget]={};
+  PICKUP_STATE[calTarget].pickupDate=dateStr;
+  const el=document.getElementById('dd_'+calTarget);
+  if(el){el.textContent=dateStr;el.closest('.date-display').classList.add('has-date');}
+  Object.values(MDE_PICKUP).forEach(rows=>{const row=rows.find(r=>cleanKey(r.orderNumber)===calTarget);if(row)row.pickupBookedDate=dateStr;});
+  document.getElementById('calendarPopup').classList.remove('open');
+  showSave('saving');savePickupState().then(()=>{showSave('saved');applySearch();});
+}
+function calClear(){
+  if(!calTarget)return;
+  if(PICKUP_STATE[calTarget])delete PICKUP_STATE[calTarget].pickupDate;
+  const el=document.getElementById('dd_'+calTarget);
+  if(el){el.textContent='—';el.closest('.date-display').classList.remove('has-date');}
+  Object.values(MDE_PICKUP).forEach(rows=>{const row=rows.find(r=>cleanKey(r.orderNumber)===calTarget);if(row)row.pickupBookedDate='';});
+  document.getElementById('calendarPopup').classList.remove('open');
+  showSave('saving');savePickupState().then(()=>{showSave('saved');applySearch();});
+}
+
+// ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// SESSION 005 — CORRIDOR CLUSTER SYSTEM
+// ═══════════════════════════════════════════════════════════════
+
+// Corridor cluster mapping (matches Route AI system prompt)
+const CLUSTER_MAP = {
+  // CLUSTER A — DEEP SOUTH (Macleod south)
+  T2Y:'A', T2X:'A', T2Z:'A', T1S:'A',
+  // CLUSTER B — SOUTH CENTRAL (Glenmore/Macleod junction)
+  T2H:'B', T2J:'B', T2V:'B', T3M:'B', T3S:'B',
+  // CLUSTER C — DOWNTOWN / INNER CITY
+  T2P:'C', T2R:'C', T2S:'C', T2T:'C', T2G:'C',
+  // CLUSTER D — INNER NW / WEST (Crowchild/Sarcee inner)
+  T2N:'D', T2M:'D', T2L:'D', T3B:'D', T3C:'D', T3E:'D', T3H:'D',
+  // CLUSTER E — NW SUBURBS (Stoney NW corridor) — V3.6: T3A moved here from D
+  T3A:'E', T3G:'E', T3K:'E', T3L:'E', T3P:'E', T3R:'E',
+  // CLUSTER F — NE / EAST (Deerfoot N + McKnight) — V3.6: T3J moved here from E
+  T1X:'F', T1Y:'F', T2A:'F', T2B:'F', T2E:'F', T2K:'F', T3J:'F', T3N:'F',
+  // CLUSTER G — SE INNER (Deerfoot S + Glenmore E)
+  T2C:'G', T2W:'G',
+  // OUTLIERS
+  T3Z:'OUTLIER-SPRINGBANK',  // V3.6 NEW — Springbank, west of Stoney
+  T4A:'OUTLIER-AIRDRIE', T4B:'OUTLIER-AIRDRIE',
+  T4C:'OUTLIER-COCHRANE',
+  T0M:'OUTLIER-CROSSFIELD',  // V3.6 NEW — Crossfield, rural N of Airdrie
+  T0L:'OUTLIER-RURAL'         // De Winton / Kananaskis south
+};
+const CLUSTER_LABELS = {
+  A:'A (Deep South)', B:'B (South Central)', C:'C (Downtown)',
+  D:'D (Inner NW/West)', E:'E (NW Suburbs)', F:'F (NE/East)', G:'G (SE Inner)',
+  'OUTLIER-SPRINGBANK':'Springbank (+15-25 min west)',
+  'OUTLIER-AIRDRIE':'Airdrie (+20-30 min north)',
+  'OUTLIER-COCHRANE':'Cochrane (+30-35 min west)',
+  'OUTLIER-CROSSFIELD':'Crossfield (+45-55 min north)',
+  'OUTLIER-RURAL':'Rural / De Winton (+40 min+ south)',
+  UNKNOWN:'Unknown — verify postal code'
+};
+function getCluster(postalCode){
+  if(!postalCode||postalCode==='—')return'UNKNOWN';
+  const fsa=postalCode.replace(/\s/g,'').substring(0,3).toUpperCase();
+  return CLUSTER_MAP[fsa]||'UNKNOWN';
+}
+function clusterLabel(cluster){return CLUSTER_LABELS[cluster]||cluster;}
+
+
+// PHASE 3 — TARGET SCHEDULING — ZONE ENGINE
+// ═══════════════════════════════════════════════════════════════
+const ZONE_MAP = {
+  T3H:'WEST',T3C:'WEST',T2W:'WEST',T3E:'WEST',
+  T3K:'NORTHWEST',T3L:'NORTHWEST',T3R:'NORTHWEST',T3G:'NORTHWEST',T3P:'NORTHWEST',
+  T3N:'NORTHEAST',T3J:'NORTHEAST',T3Y:'NORTHEAST',
+  T2T:'INNER_CITY',T2S:'INNER_CITY',T2R:'INNER_CITY',T2G:'INNER_CITY',T2E:'INNER_CITY',
+  T2H:'INNER_CITY',T2P:'INNER_CITY',T2M:'INNER_CITY',T2N:'INNER_CITY',
+  T2Y:'SOUTH_SW',T2Z:'SOUTH_SW',T3M:'SOUTH_SW',
+  T2X:'SOUTHEAST',T2J:'SOUTHEAST',T2C:'SOUTHEAST',T2A:'SOUTHEAST',T2B:'SOUTHEAST',
+  T0L:'DE_WINTON'
+};
+const ZONE_LABELS={WEST:'West',NORTHWEST:'Northwest',NORTHEAST:'Northeast',INNER_CITY:'Inner City',SOUTH_SW:'South/SW',SOUTHEAST:'Southeast',DE_WINTON:'De Winton',UNKNOWN:'Unknown'};
+const ZONE_COLORS={WEST:'zone-WEST',NORTHWEST:'zone-NORTHWEST',NORTHEAST:'zone-NORTHEAST',INNER_CITY:'zone-INNER_CITY',SOUTH_SW:'zone-SOUTH_SW',SOUTHEAST:'zone-SOUTHEAST',DE_WINTON:'zone-DE_WINTON',UNKNOWN:'zone-UNKNOWN'};
+
+function getZone(postalCode){
+  if(!postalCode||postalCode==='—')return'UNKNOWN';
+  const fsa=postalCode.replace(/\s/g,'').substring(0,3).toUpperCase();
+  return ZONE_MAP[fsa]||'UNKNOWN';
+}
+function zoneBadge(zone){
+  const cls=ZONE_COLORS[zone]||'zone-UNKNOWN';
+  return`<span class="badge ${cls}">${ZONE_LABELS[zone]||zone}</span>`;
+}
+
+const GOOD_PAIRS=[['WEST','NORTHWEST'],['WEST','SOUTH_SW'],['WEST','INNER_CITY'],['INNER_CITY','SOUTHEAST'],['INNER_CITY','SOUTH_SW'],['INNER_CITY','NORTHEAST'],['NORTHEAST','SOUTHEAST'],['SOUTH_SW','SOUTHEAST']];
+const CONFLICT_PAIRS=[
+  {zones:['NORTHWEST','SOUTHEAST'],msg:'Long cross-city run — consider splitting across days'},
+  {zones:['NORTHWEST','NORTHEAST'],msg:'30-40 min cross — assess drive time'},
+  {zones:['DE_WINTON','NORTHWEST'],msg:'Major distance — De Winton should be standalone'},
+  {zones:['DE_WINTON','NORTHEAST'],msg:'Major distance — De Winton should be standalone'}
+];
+function assessCorridor(zones){
+  const u=[...new Set(zones.filter(z=>z!=='UNKNOWN'))];
+  if(u.length<=1)return{type:'ok',msg:'Single zone — clean route'};
+  const conflicts=[];
+  CONFLICT_PAIRS.forEach(cp=>{if(cp.zones.every(z=>u.includes(z)))conflicts.push(cp.msg);});
+  if(conflicts.length)return{type:'conflict',msg:conflicts.join(' | ')};
+  const good=GOOD_PAIRS.some(gp=>gp.every(z=>u.includes(z)));
+  if(good)return{type:'ok',msg:'Good corridor combination'};
+  return{type:'warn',msg:'Mixed zones — check drive times before committing'};
+}
+
+const ZONE_CENTROIDS={WEST:{lat:51.02,lng:-114.19},NORTHWEST:{lat:51.14,lng:-114.18},NORTHEAST:{lat:51.12,lng:-113.99},INNER_CITY:{lat:51.04,lng:-114.07},SOUTH_SW:{lat:50.92,lng:-114.08},SOUTHEAST:{lat:50.94,lng:-113.97},DE_WINTON:{lat:50.78,lng:-113.98},UNKNOWN:{lat:51.05,lng:-114.07}};
+function haversine(lat1,lng1,lat2,lng2){
+  const R=6371,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function orderByDistance(jobs){
+  if(jobs.length<=1)return jobs;
+  const zones=jobs.map(j=>j._zone);
+  const modeZone=zones.sort((a,b)=>zones.filter(v=>v===a).length-zones.filter(v=>v===b).length).pop();
+  const cen=ZONE_CENTROIDS[modeZone]||ZONE_CENTROIDS.UNKNOWN;
+  return[...jobs].sort((a,b)=>{
+    const za=ZONE_CENTROIDS[a._zone]||cen,zb=ZONE_CENTROIDS[b._zone]||cen;
+    return haversine(cen.lat,cen.lng,za.lat,za.lng)-haversine(cen.lat,cen.lng,zb.lat,zb.lng);
+  });
+}
+
+// ── TARGETING CONTROLS ─────────────────────────────────────────
+function toggleTarget(quoteNumber,checked){
+  if(checked)TARGETED_JOBS.add(quoteNumber);
+  else{
+    TARGETED_JOBS.delete(quoteNumber);
+    // V3.8: also remove from route if it was there
+    const idx=ROUTE_STOPS.indexOf(quoteNumber);
+    if(idx>=0)ROUTE_STOPS.splice(idx,1);
+  }
+  updateTargetCounter();
+  if(typeof refreshSectionCheckboxStates==='function')refreshSectionCheckboxStates();
+}
+function updateTargetCounter(){
+  const n=TARGETED_JOBS.size;
+  const tc=document.getElementById('targetCounter');
+  const cnt=document.getElementById('cnt-target');
+  if(tc){
+    tc.textContent='🎯 '+n+' selected';
+    tc.classList.toggle('has-targets',n>0);
+  }
+  if(cnt)cnt.textContent=n;
+}
+function selectAllVisible(){
+  document.querySelectorAll('input.target-chk').forEach(cb=>{
+    const m=cb.getAttribute('onchange');
+    if(!m)return;
+    const match=m.match(/'([^']+)'/);
+    if(match){TARGETED_JOBS.add(match[1]);cb.checked=true;}
+  });
+  updateTargetCounter();
+}
+function clearSelection(){
+  TARGETED_JOBS.clear();
+  ROUTE_STOPS.length=0; // V3.8: also clear route
+  document.querySelectorAll('input.target-chk').forEach(cb=>cb.checked=false);
+  updateTargetCounter();
+  if(currentView==='target')renderTarget();
+}
+
+// V3.8: Per-section Select All
+function toggleSectionSelect(sectionId,checked){
+  const rows=document.querySelectorAll('tr[data-section="'+sectionId+'"]:not(.section-header):not(.sub-section-header)');
+  rows.forEach(row=>{
+    const cb=row.querySelector('input.target-chk');
+    if(!cb)return;
+    const m=cb.getAttribute('onchange');
+    const match=m&&m.match(/'([^']+)'/);
+    if(!match)return;
+    const qn=match[1];
+    if(checked){TARGETED_JOBS.add(qn);cb.checked=true;}
+    else{TARGETED_JOBS.delete(qn);cb.checked=false;}
+  });
+  updateTargetCounter();
+  refreshSectionCheckboxStates();
+}
+function toggleSubSectionSelect(subKey,checked){
+  const rows=document.querySelectorAll('tr[data-subsection="'+subKey+'"]:not(.section-header):not(.sub-section-header)');
+  rows.forEach(row=>{
+    const cb=row.querySelector('input.target-chk');
+    if(!cb)return;
+    const m=cb.getAttribute('onchange');
+    const match=m&&m.match(/'([^']+)'/);
+    if(!match)return;
+    const qn=match[1];
+    if(checked){TARGETED_JOBS.add(qn);cb.checked=true;}
+    else{TARGETED_JOBS.delete(qn);cb.checked=false;}
+  });
+  updateTargetCounter();
+  refreshSectionCheckboxStates();
+}
+// Update section/sub-section checkbox state (checked/unchecked/indeterminate) based on row state
+function refreshSectionCheckboxStates(){
+  document.querySelectorAll('input.section-select-chk').forEach(secCb=>{
+    const sid=secCb.getAttribute('data-section-id');
+    const rows=document.querySelectorAll('tr[data-section="'+sid+'"]:not(.section-header):not(.sub-section-header)');
+    let total=0,checked=0;
+    rows.forEach(r=>{const cb=r.querySelector('input.target-chk');if(cb){total++;if(cb.checked)checked++;}});
+    if(total===0){secCb.checked=false;secCb.indeterminate=false;}
+    else if(checked===total){secCb.checked=true;secCb.indeterminate=false;}
+    else if(checked===0){secCb.checked=false;secCb.indeterminate=false;}
+    else{secCb.checked=false;secCb.indeterminate=true;}
+  });
+  document.querySelectorAll('input.subsection-select-chk').forEach(subCb=>{
+    const sid=subCb.getAttribute('data-subsection-id');
+    const rows=document.querySelectorAll('tr[data-subsection="'+sid+'"]:not(.section-header):not(.sub-section-header)');
+    let total=0,checked=0;
+    rows.forEach(r=>{const cb=r.querySelector('input.target-chk');if(cb){total++;if(cb.checked)checked++;}});
+    if(total===0){subCb.checked=false;subCb.indeterminate=false;}
+    else if(checked===total){subCb.checked=true;subCb.indeterminate=false;}
+    else if(checked===0){subCb.checked=false;subCb.indeterminate=false;}
+    else{subCb.checked=false;subCb.indeterminate=true;}
+  });
+}
+
+// ── ROUTE ANALYSIS BUILDER ─────────────────────────────────────
+function buildRouteAnalysis(jobs){
+  jobs.forEach(j=>j._zone=getZone(j.postalCode));
+  const zones=jobs.map(j=>j._zone);
+  const corridor=assessCorridor(zones);
+  const groups={};
+  jobs.forEach(j=>{if(!groups[j._zone])groups[j._zone]=[];groups[j._zone].push(j);});
+  Object.keys(groups).forEach(z=>{groups[z]=orderByDistance(groups[z]);});
+
+  let html='<div class="route-analysis">';
+  html+='<div class="route-title">📍 Route Analysis</div>';
+  const flagClass=corridor.type==='ok'?'corridor-ok':corridor.type==='conflict'?'corridor-conflict':'corridor-warn';
+  const flagIcon=corridor.type==='ok'?'✅':corridor.type==='conflict'?'⚠️':'⚠';
+  html+=`<div class="corridor-flag ${flagClass}">${flagIcon} ${corridor.msg}</div>`;
+
+  Object.entries(groups).forEach(([zone,zJobs])=>{
+    html+='<div class="zone-group">';
+    html+=`<div class="zone-group-hdr">${zoneBadge(zone)}<span style="color:var(--text3);font-size:11px">${zJobs.length} job${zJobs.length>1?'s':''}</span>`;
+    if(zone==='DE_WINTON')html+='<span style="color:#be123c;font-size:10px">+30 min travel each way</span>';
+    html+='</div><div class="zone-jobs">';
+    zJobs.forEach((j,i)=>{
+      const twoTech=j.numTechs&&String(j.numTechs).includes('2');
+      html+=`<div class="zone-job-row">
+        <span class="mono-sm" style="color:var(--text3);min-width:20px">${i+1}.</span>
+        <span class="mono-sm" style="min-width:110px">${j.quoteNumber}</span>
+        <span style="min-width:160px;white-space:normal">${j.customer}</span>
+        <span class="mono-sm" style="color:var(--text3);min-width:80px">${j.postalCode||'—'}</span>
+        <span class="mono-sm" style="color:var(--text3)">${j.estimatedTime||'—'}</span>
+        ${twoTech?'<span class="badge badge-amber" style="font-size:9px">2 tech</span>':''}
+      </div>`;
+    });
+    html+='</div></div>';
+  });
+  html+='</div>';
+  return html;
+}
+
+// ── RENDER TARGET VIEW ─────────────────────────────────────────
+let targetAIConversation=[];
+
+function renderTarget(){
+  // Preserve Route AI conversation before innerHTML wipe
+  const _prevAIMsgs=document.getElementById('targetAIMessages');
+  const _savedAIHTML=_prevAIMsgs?_prevAIMsgs.innerHTML:null;
+  const viewArea=document.getElementById('viewArea');
+  document.getElementById('rowCount').textContent=TARGETED_JOBS.size+' targeted';
+  const targeted=MDE_SCHEDULE.filter(r=>TARGETED_JOBS.has(r.quoteNumber));
+
+  if(!targeted.length){
+    viewArea.innerHTML=`<div class="target-empty">
+      <div class="target-empty-icon">🎯</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text2);margin-bottom:8px">No jobs targeted</div>
+      <div style="font-size:12px">Check jobs on the Schedule view to begin route planning</div>
+    </div>`;
+    return;
+  }
+
+  // Decorate jobs with cluster info
+  const decorated=targeted.map(j=>({...j,_zone:getZone(j.postalCode),_cluster:getCluster(j.postalCode)}));
+  
+  // Split into candidates (not in route) and route stops (in ROUTE_STOPS)
+  const routeJobs=ROUTE_STOPS.map(qn=>decorated.find(j=>j.quoteNumber===qn)).filter(Boolean);
+  const candidateJobs=decorated.filter(j=>!ROUTE_STOPS.includes(j.quoteNumber));
+  
+  // Determine which vendor pickups are needed (any job with vendor pickup)
+  const vendorsNeeded=new Set();
+  decorated.forEach(j=>{
+    if(j.extraStep==='Pickup'&&j.normVendor&&['OLD','VITRO','ADFAST'].includes(j.normVendor)){
+      vendorsNeeded.add(j.normVendor);
+    }
+  });
+  
+  // Vendor pickup candidates (not yet in route)
+  const vendorCandidates=[];
+  vendorsNeeded.forEach(v=>{
+    const vKey='VENDOR_'+v;
+    if(!ROUTE_STOPS.includes(vKey)){
+      const jobsForVendor=decorated.filter(j=>j.normVendor===v&&j.extraStep==='Pickup').map(j=>j.quoteNumber);
+      vendorCandidates.push({key:vKey,vendor:v,jobs:jobsForVendor,...VENDOR_PICKUPS[v]});
+    }
+  });
+
+  viewArea.innerHTML=`<div class="target-view">
+    <div class="target-sidebar">
+      <div class="target-sidebar-header">
+        <span>🎯 Target Scheduling</span>
+        <span style="font-weight:400;opacity:0.8;margin-left:6px">${targeted.length} targeted · ${ROUTE_STOPS.length} on route</span>
+        <button class="toolbar-btn" onclick="clearSelection()" style="margin-left:auto;background:#fff;color:#5b21b6;border:1px solid #c4b5fd">Clear All</button>
+      </div>
+      <div class="target-pane target-route-pane">
+        <div class="target-pane-header">📋 Today's Route <span class="target-pane-count">${ROUTE_STOPS.length}</span></div>
+        ${renderRouteSummary(routeJobs)}
+        ${renderPickupWarning(decorated,routeJobs)}
+        <div class="target-pane-body" id="routePaneBody">${renderRouteList(routeJobs)}</div>
+      </div>
+      <div class="target-pane target-candidates-pane">
+        <div class="target-pane-header">🎯 Candidates <span class="target-pane-count">${candidateJobs.length+vendorCandidates.length}</span></div>
+        <div class="target-pane-body" id="candidatesPaneBody">${renderCandidatesList(candidateJobs,vendorCandidates)}</div>
+      </div>
+    </div>
+    <div class="target-map-col">
+      <div id="targetMap"></div>
+      <div class="target-right">
+      <div class="target-ai-header">
+        <div class="ai-status-dot"></div>
+        <div class="target-ai-title">Route AI</div>
+      </div>
+      <div class="ai-messages" id="targetAIMessages" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;">
+        <div class="ai-msg ai-msg-ai">
+          <div class="ai-msg-label">ROUTE AI</div>
+          <div class="ai-bubble">${targeted.length} job${targeted.length>1?'s':''} loaded as candidates. ${ROUTE_STOPS.length>0?ROUTE_STOPS.length+' currently on route. ':''}Move jobs to Today's Route to build your day.</div>
+        </div>
+      </div>
+      <div class="ai-input-area" style="flex-shrink:0">
+        <div class="ai-quick-prompts">
+          <div class="ai-qp" onclick="askTargetAI(this)">Suggest an order for my route</div>
+          <div class="ai-qp" onclick="askTargetAI(this)">Which candidates fit best?</div>
+          <div class="ai-qp" onclick="askTargetAI(this)">Is my route order efficient?</div>
+          <div class="ai-qp" onclick="askTargetAI(this)">Will this all fit in the day?</div>
+        </div>
+        <div class="ai-input-row">
+          <textarea class="ai-input" id="targetAIInput" placeholder="Ask about route planning..." onkeydown="handleTargetAIKey(event)" style="height:56px"></textarea>
+          <button class="ai-send-btn" onclick="sendTargetAIMessage()">
+            <svg width="13" height="13" viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
+          </button>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>`;
+
+  // Initialize map after DOM is ready
+  setTimeout(()=>{
+    // Restore Route AI conversation if it existed
+    if(_savedAIHTML){
+      const aiMsgs=document.getElementById('targetAIMessages');
+      if(aiMsgs)aiMsgs.innerHTML=_savedAIHTML;
+    }
+    initTargetMap(decorated,routeJobs);
+  },50);
+}
+
+// V3.8: Hours/tech badge helpers
+function hoursBadge(hours){
+  const h=parseFloat(hours)||1;
+  if(h>=2.5)return `<span class="badge badge-red" title="Long job">${h}h</span>`;
+  if(h>=1.5)return `<span class="badge badge-amber" title="Longer job">${h}h</span>`;
+  return `<span class="badge badge-green">${h}h</span>`;
+}
+function techBadge(numTechs){
+  const n=parseInt(numTechs)||1;
+  if(n>=2)return `<span class="badge" style="background:#fed7aa;color:#9a3412;font-weight:700">${n} TECH</span>`;
+  return '';
+}
+function pickupBadge(extraStep,normVendor){
+  if(extraStep!=='Pickup')return '';
+  const vendor=normVendor&&['OLD','VITRO','ADFAST','ODL','INSUL','AGP'].includes(normVendor)?normVendor:'';
+  return `<span class="badge" style="background:#ede9fe;color:#5b21b6;font-weight:700">📦 ${vendor||'PICKUP'}</span>`;
+}
+
+// V3.8: Candidates list (regular jobs + vendor pickups)
+function renderCandidatesList(jobs,vendorCandidates){
+  let html='';
+  if(!jobs.length&&!vendorCandidates.length){
+    html='<div style="padding:20px;text-align:center;color:var(--text3);font-size:11px;font-style:italic">All targeted jobs are on route</div>';
+    return html;
+  }
+  // Vendor pickup candidates first (highlighted)
+  vendorCandidates.forEach(vc=>{
+    html+=`<div class="target-row vendor-row" onmouseenter="hoverVendorPin('${vc.vendor}')">
+      <div class="target-row-main">
+        <span class="badge" style="background:#fef3c7;color:#92400e;font-weight:700">📦 ${vc.vendor}</span>
+        <span class="target-row-customer">${vc.name}</span>
+      </div>
+      <div class="target-row-sub">${vc.address} · Required for ${vc.jobs.length} job${vc.jobs.length>1?'s':''}</div>
+      <div class="target-row-actions">
+        <button class="target-add-btn" onclick="addVendorToRoute('${vc.vendor}')" title="Add to route">+ Add</button>
+      </div>
+    </div>`;
+  });
+  // Regular job candidates
+  jobs.forEach(j=>{
+    const hasCoords=getJobCoords(j)!==null;
+    const clusterShort=j._cluster.startsWith('OUTLIER')?'OUT':j._cluster;
+    html+=`<div class="target-row" onmouseenter="hoverJobPin('${j.quoteNumber}')" data-quote="${j.quoteNumber}">
+      <div class="target-row-main">
+        <span class="badge zone-${j._zone}" title="${clusterLabel(j._cluster)}">${clusterShort}</span>
+        <span class="mono-sm">${j.quoteNumber}</span>
+        <span class="target-row-customer">${j.customer||''}</span>
+        ${hoursBadge(j.estimatedTime)}
+        ${techBadge(j.numTechs)}
+        ${pickupBadge(j.extraStep,j.normVendor)}
+        ${!hasCoords?'<span class="badge badge-gray" title="No location data">📍 No loc</span>':''}
+      </div>
+      <div class="target-row-sub">${j.address||'(no address)'} · ${j.postalCode||'no postal'}</div>
+      <div class="target-row-actions">
+        <button class="target-add-btn" onclick="addJobToRoute('${j.quoteNumber}')" title="Add to route">+ Add</button>
+        <button class="target-untarget-btn" onclick="untargetJob('${j.quoteNumber}')" title="Remove from targeting">✕</button>
+      </div>
+    </div>`;
+  });
+  return html;
+}
+
+// V3.8: Today's Route summary line
+function renderRouteSummary(routeJobs){
+  if(!routeJobs.length)return '';
+  let totalHours=0,twoTech=0,pickups=0;
+  routeJobs.forEach(j=>{
+    if(!j._isVendor){
+      totalHours+=parseFloat(j.estimatedTime)||1;
+      if((parseInt(j.numTechs)||1)>=2)twoTech++;
+      if(j.extraStep==='Pickup')pickups++;
+    }
+  });
+  // V4.0: Sum actual leg times from CLUSTER_DRIVE_TIMES
+  let driveMinutes=0;
+  // Shop (B) → Stop 1
+  driveMinutes+=getDriveTime('B',getJobCluster(routeJobs[0])).mins;
+  // Stop N → Stop N+1
+  for(let i=0;i<routeJobs.length-1;i++){
+    driveMinutes+=getDriveTime(getJobCluster(routeJobs[i]),getJobCluster(routeJobs[i+1])).mins;
+  }
+  // Last Stop → Shop (B)
+  driveMinutes+=getDriveTime(getJobCluster(routeJobs[routeJobs.length-1]),'B').mins;
+  const driveBuffer=driveMinutes/60;
+  const totalDay=totalHours+driveBuffer;
+  const overflow=totalDay>8;
+  const summary=`📊 ${routeJobs.length} stop${routeJobs.length>1?'s':''} · ${totalHours.toFixed(1)} hrs jobs${twoTech?' · '+twoTech+' two-tech':''}${pickups?' · '+pickups+' pickups':''} · ~${driveMinutes} min drive · est. ~${totalDay.toFixed(1)} hrs total`;
+  return `<div class="route-summary ${overflow?'route-summary-overflow':''}">${summary}${overflow?' ⚠ Exceeds day window':''}</div>`;
+}
+
+// V3.8: Pickup warning at top of route
+function renderPickupWarning(allJobs,routeJobs){
+  // jobs needing vendor pickup that are in route
+  const pickupJobsInRoute=routeJobs.filter(j=>!j._isVendor&&j.extraStep==='Pickup'&&['OLD','VITRO','ADFAST'].includes(j.normVendor));
+  if(!pickupJobsInRoute.length)return '';
+  const vendorsInRoute=new Set(routeJobs.filter(j=>j._isVendor).map(j=>j._vendor));
+  const vendorsNeeded=new Set(pickupJobsInRoute.map(j=>j.normVendor));
+  let html='';
+  vendorsNeeded.forEach(v=>{
+    const count=pickupJobsInRoute.filter(j=>j.normVendor===v).length;
+    if(vendorsInRoute.has(v)){
+      html+=`<div class="pickup-info">✓ ${v} pickup scheduled — covers ${count} job${count>1?'s':''}</div>`;
+    }else{
+      html+=`<div class="pickup-warn">⚠ ${count} job${count>1?'s':''} need ${v} pickup — add ${v} pickup stop to route</div>`;
+    }
+  });
+  return html;
+}
+
+// V3.8: Today's Route list (ordered with drive time buttons)
+function renderRouteList(routeJobs){
+  if(!routeJobs.length){
+    return '<div style="padding:20px;text-align:center;color:var(--text3);font-size:11px;font-style:italic">No stops yet — add jobs from Candidates below</div>';
+  }
+  let html='';
+  // Shop → Stop 1 divider
+  const firstCluster=getJobCluster(routeJobs[0]);
+  const firstDt=getDriveTime('B',firstCluster);
+  const firstCls=firstDt.unknown?'route-drive-divider route-drive-divider-unknown':'route-drive-divider';
+  html=`<div class="${firstCls}"><div class="route-drive-divider-line"></div>🚗 ~${firstDt.mins} min${firstDt.unknown?'?':''} <span style="opacity:0.7">(Shop → ${firstCluster?'Cluster '+firstCluster:'Stop 1'})</span><div class="route-drive-divider-line"></div></div>`;
+  routeJobs.forEach((j,i)=>{
+    const stopNum=i+1;
+    if(j._isVendor){
+      html+=`<div class="route-stop vendor-stop">
+        <div class="route-stop-num">${stopNum}</div>
+        <div class="route-stop-body">
+          <div class="route-stop-main">
+            <span class="badge" style="background:#fef3c7;color:#92400e;font-weight:700">📦 ${j._vendor} PICKUP</span>
+            <span class="route-stop-customer">${j._name}</span>
+          </div>
+          <div class="route-stop-sub">${j._address}</div>
+        </div>
+        <div class="route-stop-actions">
+          <button class="target-reorder-btn" onclick="moveStopUp(${i})" title="Move up" ${i===0?'disabled':''}>↑</button>
+          <button class="target-reorder-btn" onclick="moveStopDown(${i})" title="Move down" ${i===routeJobs.length-1?'disabled':''}>↓</button>
+          <button class="target-untarget-btn" onclick="removeFromRoute(${i})" title="Send to candidates">✕</button>
+        </div>
+      </div>`;
+    }else{
+      const clusterShort=j._cluster.startsWith('OUTLIER')?'OUT':j._cluster;
+      html+=`<div class="route-stop" onmouseenter="hoverJobPin('${j.quoteNumber}')">
+        <div class="route-stop-num">${stopNum}</div>
+        <div class="route-stop-body">
+          <div class="route-stop-main">
+            <span class="badge zone-${j._zone}" title="${clusterLabel(j._cluster)}">${clusterShort}</span>
+            <span class="mono-sm">${j.quoteNumber}</span>
+            <span class="route-stop-customer">${j.customer||''}</span>
+            ${hoursBadge(j.estimatedTime)}
+            ${techBadge(j.numTechs)}
+            ${pickupBadge(j.extraStep,j.normVendor)}
+          </div>
+          <div class="route-stop-sub">${j.address||'(no address)'} · ${j.postalCode||''}</div>
+        </div>
+        <div class="route-stop-actions">
+          <button class="target-reorder-btn" onclick="moveStopUp(${i})" title="Move up" ${i===0?'disabled':''}>↑</button>
+          <button class="target-reorder-btn" onclick="moveStopDown(${i})" title="Move down" ${i===routeJobs.length-1?'disabled':''}>↓</button>
+          <button class="target-untarget-btn" onclick="removeFromRoute(${i})" title="Send to candidates">✕</button>
+        </div>
+      </div>`;
+    }
+    // Leg divider to next stop or back to shop
+    if(i<routeJobs.length-1){
+      const next=routeJobs[i+1];
+      const fromC=getJobCluster(j);
+      const toC=getJobCluster(next);
+      const dt=getDriveTime(fromC,toC);
+      const cls=dt.unknown?'route-drive-divider route-drive-divider-unknown':'route-drive-divider';
+      const fromLbl=fromC?'Cluster '+fromC:'Stop '+stopNum;
+      const toLbl=toC?'Cluster '+toC:'Stop '+(stopNum+1);
+      html+=`<div class="${cls}"><div class="route-drive-divider-line"></div>🚗 ~${dt.mins} min${dt.unknown?'?':''} <span style="opacity:0.7">(${fromLbl} → ${toLbl})</span><div class="route-drive-divider-line"></div></div>`;
+    }
+  });
+  // Last stop → Shop divider
+  const lastCluster=getJobCluster(routeJobs[routeJobs.length-1]);
+  const lastDt=getDriveTime(lastCluster,'B');
+  const lastCls=lastDt.unknown?'route-drive-divider route-drive-divider-unknown':'route-drive-divider';
+  html+=`<div class="${lastCls}"><div class="route-drive-divider-line"></div>🚗 ~${lastDt.mins} min${lastDt.unknown?'?':''} <span style="opacity:0.7">(${lastCluster?'Cluster '+lastCluster:'Last Stop'} → Shop)</span><div class="route-drive-divider-line"></div></div>`;
+  return html;
+}
+
+// V4.1: Map popup route helpers
+function addToRouteFromMap(quoteNumber){
+  if(!ROUTE_STOPS.includes(quoteNumber))ROUTE_STOPS.push(quoteNumber);
+  renderTarget();
+}
+function removeFromRouteByQuote(quoteNumber){
+  const idx=ROUTE_STOPS.indexOf(quoteNumber);
+  if(idx>=0)ROUTE_STOPS.splice(idx,1);
+  renderTarget();
+}
+
+// V3.8: Route management functions
+function addJobToRoute(quoteNumber){
+  if(!ROUTE_STOPS.includes(quoteNumber))ROUTE_STOPS.push(quoteNumber);
+  renderTarget();
+}
+function addVendorToRoute(vendor){
+  const key='VENDOR_'+vendor;
+  if(!ROUTE_STOPS.includes(key))ROUTE_STOPS.push(key);
+  renderTarget();
+}
+function removeFromRoute(idx){
+  if(idx>=0&&idx<ROUTE_STOPS.length)ROUTE_STOPS.splice(idx,1);
+  renderTarget();
+}
+function moveStopUp(idx){
+  if(idx<=0)return;
+  [ROUTE_STOPS[idx-1],ROUTE_STOPS[idx]]=[ROUTE_STOPS[idx],ROUTE_STOPS[idx-1]];
+  renderTarget();
+}
+function moveStopDown(idx){
+  if(idx>=ROUTE_STOPS.length-1)return;
+  [ROUTE_STOPS[idx],ROUTE_STOPS[idx+1]]=[ROUTE_STOPS[idx+1],ROUTE_STOPS[idx]];
+  renderTarget();
+}
+function untargetJob(quoteNumber){
+  TARGETED_JOBS.delete(quoteNumber);
+  const idx=ROUTE_STOPS.indexOf(quoteNumber);
+  if(idx>=0)ROUTE_STOPS.splice(idx,1);
+  // Uncheck the corresponding checkbox if Schedule view ever rendered
+  document.querySelectorAll('input.target-chk').forEach(cb=>{
+    const m=cb.getAttribute('onchange');
+    const match=m&&m.match(/'([^']+)'/);
+    if(match&&match[1]===quoteNumber)cb.checked=false;
+  });
+  updateTargetCounter();
+  renderTarget();
+}
+
+
+// ── V3.7 — TARGET MAP (Leaflet + OpenStreetMap) ─────────────────
+const SHOP_COORDS={lat:50.977,lng:-114.057,address:'296 Acadia Dr SE, Calgary, AB T2J 0A7'};
+
+// V4.0: Cluster drive times in minutes (symmetric). Shop anchor = Cluster B depot.
+const CLUSTER_DRIVE_TIMES={
+  'SHOP-A':15,'SHOP-B':8,'SHOP-C':15,'SHOP-D':25,'SHOP-E':35,'SHOP-F':25,'SHOP-G':13,
+  'A-B':12,'A-C':20,'A-D':30,'A-E':45,'A-F':40,'A-G':25,
+  'B-C':15,'B-D':25,'B-E':40,'B-F':28,'B-G':18,
+  'C-D':18,'C-E':30,'C-F':20,'C-G':15,
+  'D-E':20,'D-F':35,'D-G':35,
+  'E-F':40,'E-G':45,
+  'F-G':20
+};
+function getDriveTime(clusterA,clusterB){
+  if(!clusterA||!clusterB)return{mins:20,unknown:true};
+  const a=clusterA.toUpperCase().replace('OUTLIER','UNKNOWN');
+  const b=clusterB.toUpperCase().replace('OUTLIER','UNKNOWN');
+  if(a===b)return{mins:8,unknown:false};
+  const key1=a+'-'+b, key2=b+'-'+a;
+  if(CLUSTER_DRIVE_TIMES[key1]!==undefined)return{mins:CLUSTER_DRIVE_TIMES[key1],unknown:false};
+  if(CLUSTER_DRIVE_TIMES[key2]!==undefined)return{mins:CLUSTER_DRIVE_TIMES[key2],unknown:false};
+  return{mins:20,unknown:true};
+}
+function getJobCluster(job){
+  if(!job)return null;
+  if(job._isVendor)return job.cluster||'G'; // vendors are Cluster G area
+  return job.cluster||null;
+}
+let targetMapInstance=null;
+let targetMapMarkers={}; // quoteNumber → marker
+
+// Approximate FSA centroids for Calgary (used when address geocoding unavailable)
+const FSA_CENTROIDS={
+  T1S:{lat:50.726,lng:-113.978},T1X:{lat:51.034,lng:-113.838},T1Y:{lat:51.067,lng:-113.916},
+  T2A:{lat:51.044,lng:-113.945},T2B:{lat:51.029,lng:-113.971},T2C:{lat:50.962,lng:-113.989},
+  T2E:{lat:51.060,lng:-114.027},T2G:{lat:51.034,lng:-114.044},T2H:{lat:50.987,lng:-114.072},
+  T2J:{lat:50.949,lng:-114.058},T2K:{lat:51.087,lng:-114.066},T2L:{lat:51.094,lng:-114.117},
+  T2M:{lat:51.071,lng:-114.092},T2N:{lat:51.062,lng:-114.110},T2P:{lat:51.046,lng:-114.063},
+  T2R:{lat:51.038,lng:-114.077},T2S:{lat:51.025,lng:-114.085},T2T:{lat:51.022,lng:-114.099},
+  T2V:{lat:50.972,lng:-114.084},T2W:{lat:50.946,lng:-114.084},T2X:{lat:50.892,lng:-114.072},
+  T2Y:{lat:50.910,lng:-114.097},T2Z:{lat:50.880,lng:-114.038},
+  T3A:{lat:51.140,lng:-114.155},T3B:{lat:51.090,lng:-114.190},T3C:{lat:51.030,lng:-114.130},
+  T3E:{lat:51.013,lng:-114.157},T3G:{lat:51.137,lng:-114.183},T3H:{lat:51.039,lng:-114.198},
+  T3J:{lat:51.123,lng:-113.953},T3K:{lat:51.157,lng:-114.075},T3L:{lat:51.135,lng:-114.222},
+  T3M:{lat:50.886,lng:-113.963},T3N:{lat:51.162,lng:-113.952},T3P:{lat:51.181,lng:-114.131},
+  T3R:{lat:51.166,lng:-114.184},T3S:{lat:50.876,lng:-113.927},T3Z:{lat:51.046,lng:-114.297},
+  T0L:{lat:50.812,lng:-114.012},T0M:{lat:51.435,lng:-114.030},
+  T4A:{lat:51.292,lng:-114.013},T4B:{lat:51.302,lng:-114.029},T4C:{lat:51.193,lng:-114.469}
+};
+
+// V3.8: Vendor pickup locations — auto-suggested as route candidates when targeted jobs need them
+const VENDOR_PICKUPS={
+  OLD:{name:'OldCastle BuildingEnvelope',address:'3601 72 Ave SE, Calgary, AB T2C 2K3',lat:50.943,lng:-113.978,cluster:'G'},
+  VITRO:{name:'Vitro Flat Glass Canada',address:'4416 72 Ave SE, Calgary, AB',lat:50.943,lng:-113.974,cluster:'G'},
+  ADFAST:{name:'Adfast Alberta',address:'17-4216 54 Ave SE, Calgary, AB T2C 2E3',lat:50.954,lng:-113.978,cluster:'G'}
+};
+
+function getJobCoords(job){
+  const fsa=(job.postalCode||'').replace(/\s/g,'').substring(0,3).toUpperCase();
+  return FSA_CENTROIDS[fsa]||null;
+}
+
+function clusterColorHex(cluster){
+  const map={A:'#15803d',B:'#d97706',C:'#1d4ed8',D:'#6d28d9',E:'#0e7490',F:'#3730a3',G:'#92400e'};
+  if(map[cluster])return map[cluster];
+  if(cluster&&cluster.startsWith('OUTLIER'))return '#be123c';
+  return '#6b7280';
+}
+
+function initTargetMap(allJobs,routeJobs){
+  const mapEl=document.getElementById('targetMap');
+  if(!mapEl||typeof L==='undefined')return;
+  if(targetMapInstance){targetMapInstance.remove();targetMapInstance=null;}
+  targetMapMarkers={};
+
+  targetMapInstance=L.map('targetMap',{zoomControl:true,scrollWheelZoom:true}).setView([SHOP_COORDS.lat,SHOP_COORDS.lng],10);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'© OpenStreetMap',maxZoom:18
+  }).addTo(targetMapInstance);
+
+  // Shop marker
+  const shopIcon=L.divIcon({
+    className:'',
+    html:'<div style="background:#cf222e;color:#fff;border-radius:6px;padding:3px 7px;font-size:10px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);white-space:nowrap;font-family:sans-serif">SHOP</div>',
+    iconSize:[48,24],iconAnchor:[24,12],popupAnchor:[0,-14]
+  });
+  L.marker([SHOP_COORDS.lat,SHOP_COORDS.lng],{icon:shopIcon}).addTo(targetMapInstance)
+    .bindPopup('<strong>Basco Shop</strong><br>296 Acadia Dr SE<br><em>Tech start point — 8:30 AM departure</em>');
+
+  const bounds=[[SHOP_COORDS.lat,SHOP_COORDS.lng]];
+  const routeQuoteSet=new Set(ROUTE_STOPS);
+
+  // Job pins — group by FSA to handle stacked pins
+  const fsaGroups={};
+  allJobs.forEach(job=>{
+    const coords=getJobCoords(job);
+    if(!coords)return;
+    const fsa=(job.postalCode||'').replace(/\s/g,'').substring(0,3).toUpperCase();
+    if(!fsaGroups[fsa])fsaGroups[fsa]={coords,jobs:[]};
+    fsaGroups[fsa].jobs.push(job);
+  });
+
+  Object.values(fsaGroups).forEach(group=>{
+    const {coords,jobs}=group;
+    const isStack=jobs.length>1;
+    bounds.push([coords.lat,coords.lng]);
+
+    if(isStack){
+      // Stacked pin: badge with count
+      const clusters=jobs.map(j=>j._cluster);
+      const dominantCluster=clusters.sort((a,b)=>clusters.filter(v=>v===b).length-clusters.filter(v=>v===a).length)[0];
+      const color=clusterColorHex(dominantCluster);
+      const anyOnRoute=jobs.some(j=>routeQuoteSet.has(j.quoteNumber));
+      const icon=L.divIcon({
+        className:'',
+        html:`<div style="position:relative;display:inline-block">
+          <div style="background:${color};color:#fff;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3);font-family:sans-serif;opacity:${anyOnRoute?'1':'0.7'}">
+            ${jobs.length}
+          </div>
+          <div style="position:absolute;top:-5px;right:-5px;background:#cf222e;color:#fff;border-radius:50%;width:14px;height:14px;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1px solid #fff;font-family:sans-serif">${jobs.length}</div>
+        </div>`,
+        iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-18]
+      });
+      // Build stacked popup listing all jobs
+      const jobRows=jobs.map(j=>{
+        const isOnRoute=routeQuoteSet.has(j.quoteNumber);
+        const stopNum=isOnRoute?(ROUTE_STOPS.indexOf(j.quoteNumber)+1):null;
+        const jColor=clusterColorHex(j._cluster);
+        const routeBtn=isOnRoute
+          ? `<button onclick="removeFromRouteByQuote('${j.quoteNumber}');targetMapInstance.closePopup()" style="font-size:10px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:sans-serif;font-weight:600">✕ Remove (Stop ${stopNum})</button>`
+          : `<button onclick="addToRouteFromMap('${j.quoteNumber}')" style="font-size:10px;background:#5b21b6;color:#fff;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:sans-serif;font-weight:600">+ Add to Route</button>`;
+        const jBadges='<span style="font-size:9px;background:#f3f4f6;color:#374151;padding:1px 5px;border-radius:3px;margin-right:3px">'+(parseFloat(j.estimatedTime)||1)+'h</span>'+((parseInt(j.numTechs)||1)>=2?'<span style="font-size:9px;background:#fed7aa;color:#9a3412;padding:1px 5px;border-radius:3px;margin-right:3px;font-weight:700">2 TECH</span>':'')+( j.extraStep==="Pickup"?'<span style="font-size:9px;background:#ede9fe;color:#5b21b6;padding:1px 5px;border-radius:3px;font-weight:700">📦 '+(j.normVendor||'PICKUP')+'</span>':'');
+        return `<div style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 9px;margin-bottom:6px;">
+          <div style="font-size:11px;font-weight:700;color:${jColor}">${j.quoteNumber}</div>
+          <div style="font-size:11px;font-weight:600">${j.customer||''}</div>
+          <div style="font-size:10px;color:#666;margin-bottom:3px">${j.address||''} · Cluster ${j._cluster}</div>\n          <div style="margin-bottom:5px">${jBadges}</div>\n          ${routeBtn}
+        </div>`;
+      }).join('');
+      const marker=L.marker([coords.lat,coords.lng],{icon}).addTo(targetMapInstance)
+        .bindPopup(`<div style="font-family:sans-serif;min-width:220px;max-height:300px;overflow-y:auto">
+          <div style="font-size:11px;font-weight:700;color:#5b21b6;margin-bottom:8px">📍 ${jobs.length} jobs in this area</div>
+          ${jobRows}
+          <div style="font-size:9px;color:#999;font-style:italic;margin-top:4px">Pins share the same FSA area (${jobs[0].postalCode?jobs[0].postalCode.substring(0,3):'?'})</div>
+        </div>`,{maxWidth:260});
+      jobs.forEach(j=>{ targetMapMarkers[j.quoteNumber]=marker; });
+
+    } else {
+      // Single pin
+      const job=jobs[0];
+      const isOnRoute=routeQuoteSet.has(job.quoteNumber);
+      const stopNum=isOnRoute?(ROUTE_STOPS.indexOf(job.quoteNumber)+1):null;
+      const color=clusterColorHex(job._cluster);
+      const twoTech=(parseInt(job.numTechs)||1)>=2;
+      const longJob=(parseFloat(job.estimatedTime)||1)>=2;
+      const size=longJob?30:26;
+      const borderStyle=twoTech?'border:3px double #fff;outline:1px solid #000':'border:2px solid #fff';
+      const opacity=isOnRoute?'1':'0.55';
+      const dashStyle=isOnRoute?'':'border-style:dashed;';
+      const label=isOnRoute?stopNum:'·';
+      const icon=L.divIcon({
+        className:'',
+        html:`<div style="background:${color};color:#fff;border-radius:50%;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;${borderStyle};box-shadow:0 1px 4px rgba(0,0,0,0.3);font-family:sans-serif;opacity:${opacity};${dashStyle}">${label}</div>`,
+        iconSize:[size,size],iconAnchor:[size/2,size/2],popupAnchor:[0,-size/2]
+      });
+      const directionsUrl='https://www.google.com/maps/dir/'+encodeURIComponent(SHOP_COORDS.address)+'/'+encodeURIComponent((job.address||'')+', Calgary, AB '+(job.postalCode||''));
+      const pickupNote=job.extraStep==='Pickup'?`<div style="font-size:10px;color:#5b21b6;margin-bottom:4px"><strong>📦 Pickup required: ${job.normVendor||''}</strong></div>`:'';
+      const onRouteNote=isOnRoute?`<div style="font-size:10px;color:#15803d;margin-bottom:4px"><strong>📋 Stop ${stopNum} on route</strong></div>`:'';
+      const routeBtn=isOnRoute
+        ? `<button onclick="removeFromRouteByQuote('${job.quoteNumber}');targetMapInstance.closePopup()" style="font-size:10px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:sans-serif;font-weight:600;margin-top:4px">✕ Remove from Route (Stop ${stopNum})</button>`
+        : `<button onclick="addToRouteFromMap('${job.quoteNumber}')" style="font-size:10px;background:#5b21b6;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:sans-serif;font-weight:600;margin-top:4px">+ Add to Route</button>`;
+      const marker=L.marker([coords.lat,coords.lng],{icon}).addTo(targetMapInstance)
+        .bindPopup(`<div style="font-family:sans-serif;min-width:200px">
+          <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:2px">${job.quoteNumber}</div>
+          <div style="font-size:12px;font-weight:600;margin-bottom:2px">${job.customer||''}</div>
+          <div style="font-size:11px;color:#666;margin-bottom:3px">${job.address||'(no address)'}</div>
+          <div style="font-size:10px;color:#999;margin-bottom:4px">${job.postalCode||''} · Cluster ${job._cluster}</div>
+          <div style="margin-bottom:5px"><span style="font-size:9px;background:#f3f4f6;color:#374151;padding:1px 5px;border-radius:3px;margin-right:3px">${parseFloat(job.estimatedTime)||1}h</span>${(parseInt(job.numTechs)||1)>=2?'<span style="font-size:9px;background:#fed7aa;color:#9a3412;padding:1px 5px;border-radius:3px;margin-right:3px;font-weight:700">2 TECH</span>':''} ${job.extraStep==='Pickup'?`<span style="font-size:9px;background:#ede9fe;color:#5b21b6;padding:1px 5px;border-radius:3px;font-weight:700">📦 ${job.normVendor||'PICKUP'}</span>`:''}</div>
+          ${pickupNote}${onRouteNote}
+          <a href="${directionsUrl}" target="_blank" rel="noopener" style="display:inline-block;font-size:10px;background:#0550ae;color:#fff;padding:4px 10px;border-radius:4px;text-decoration:none;font-weight:600">Directions from Shop</a>
+          ${routeBtn}
+        </div>`);
+      targetMapMarkers[job.quoteNumber]=marker;
+    }
+  });
+
+  // Vendor pickup pins (always show if any targeted job needs them, or if in route)
+  Object.entries(VENDOR_PICKUPS).forEach(([vKey,vInfo])=>{
+    const vendorKey='VENDOR_'+vKey;
+    const isOnRoute=ROUTE_STOPS.includes(vendorKey);
+    const stopNum=isOnRoute?(ROUTE_STOPS.indexOf(vendorKey)+1):null;
+    // Only show vendor pin if any targeted job needs it OR it's on route
+    const anyJobNeeds=allJobs.some(j=>j.normVendor===vKey&&j.extraStep==='Pickup');
+    if(!anyJobNeeds&&!isOnRoute)return;
+    const label=isOnRoute?stopNum:'📦';
+    const icon=L.divIcon({
+      className:'',
+      html:`<div style="background:#92400e;color:#fff;border-radius:6px;padding:4px 7px;font-size:10px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3);font-family:sans-serif;white-space:nowrap;${isOnRoute?'':'opacity:0.7'}">${label} ${vKey}</div>`,
+      iconSize:[64,24],iconAnchor:[32,12],popupAnchor:[0,-14]
+    });
+    const directionsUrl='https://www.google.com/maps/dir/'+encodeURIComponent(SHOP_COORDS.address)+'/'+encodeURIComponent(vInfo.address);
+    const onRouteNote=isOnRoute?`<div style="font-size:10px;color:#15803d;margin-bottom:4px"><strong>📋 Stop ${stopNum} on route</strong></div>`:'';
+    const jobsServed=allJobs.filter(j=>j.normVendor===vKey&&j.extraStep==='Pickup').length;
+    const marker=L.marker([vInfo.lat,vInfo.lng],{icon}).addTo(targetMapInstance)
+      .bindPopup(`<div style="font-family:sans-serif;min-width:200px">
+        <div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:2px">📦 ${vKey} PICKUP</div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:2px">${vInfo.name}</div>
+        <div style="font-size:11px;color:#666;margin-bottom:3px">${vInfo.address}</div>
+        <div style="font-size:10px;color:#999;margin-bottom:6px">Required for ${jobsServed} job${jobsServed!==1?'s':''}</div>
+        ${onRouteNote}
+        <a href="${directionsUrl}" target="_blank" rel="noopener" style="display:inline-block;font-size:10px;background:#0550ae;color:#fff;padding:4px 10px;border-radius:4px;text-decoration:none;font-weight:600">Directions from Shop</a>
+      </div>`);
+    targetMapMarkers[vendorKey]=marker;
+    bounds.push([vInfo.lat,vInfo.lng]);
+  });
+
+  // Polyline connecting route stops in order (visual sequence only)
+  if(ROUTE_STOPS.length>0){
+    const linePoints=[[SHOP_COORDS.lat,SHOP_COORDS.lng]];
+    ROUTE_STOPS.forEach(qn=>{
+      if(qn.startsWith('VENDOR_')){
+        const v=qn.replace('VENDOR_','');
+        if(VENDOR_PICKUPS[v])linePoints.push([VENDOR_PICKUPS[v].lat,VENDOR_PICKUPS[v].lng]);
+      }else{
+        const job=allJobs.find(j=>j.quoteNumber===qn);
+        if(job){
+          const c=getJobCoords(job);
+          if(c)linePoints.push([c.lat,c.lng]);
+        }
+      }
+    });
+    linePoints.push([SHOP_COORDS.lat,SHOP_COORDS.lng]); // back to shop
+    if(linePoints.length>2){
+      L.polyline(linePoints,{color:'#7c3aed',weight:2.5,opacity:0.7,dashArray:'8,6'}).addTo(targetMapInstance);
+    }
+  }
+
+  if(bounds.length>1){
+    targetMapInstance.fitBounds(bounds,{padding:[30,30],maxZoom:13});
+  }
+  setTimeout(()=>{if(targetMapInstance)targetMapInstance.invalidateSize();},100);
+
+  // V4.0 Stage 5: Fix popup ✕ button triggering browser tab-close in artifact sandbox
+  targetMapInstance.on('popupopen',function(e){
+    const closeBtn=e.popup._container?e.popup._container.querySelector('.leaflet-popup-close-button'):null;
+    if(closeBtn){
+      closeBtn.addEventListener('click',function(ev){
+        ev.preventDefault();ev.stopPropagation();
+        targetMapInstance.closePopup();
+      });
+    }
+  });
+}
+
+function hoverVendorPin(vendor){
+  const m=targetMapMarkers['VENDOR_'+vendor];
+  if(m&&targetMapInstance)m.openPopup();
+}
+
+
+function hoverJobPin(quoteNumber){
+  const m=targetMapMarkers[quoteNumber];
+  if(m&&targetMapInstance)m.openPopup();
+}
+function zoomToJobPin(quoteNumber){
+  const m=targetMapMarkers[quoteNumber];
+  if(m&&targetMapInstance){
+    targetMapInstance.setView(m.getLatLng(),14);
+    m.openPopup();
+  }
+}
+
+
+// ── TARGET AI (ROUTE AI) ───────────────────────────────────────
+// SESSION 005: Full corridor cluster system + drive time estimation framework
+function buildTargetAIContext(){
+  const targeted=MDE_SCHEDULE.filter(r=>TARGETED_JOBS.has(r.quoteNumber));
+  const routeJobs=ROUTE_STOPS.map(qn=>{
+    if(qn.startsWith('VENDOR_')){
+      const v=qn.replace('VENDOR_','');
+      return VENDOR_PICKUPS[v]?{_isVendor:true,_vendor:v,quoteNumber:qn,customer:VENDOR_PICKUPS[v].name,address:VENDOR_PICKUPS[v].address,postalCode:'',normVendor:v,extraStep:'Pickup',estimatedTime:'0.5'}:null;
+    }
+    return targeted.find(j=>j.quoteNumber===qn);
+  }).filter(Boolean);
+  const candidateJobs=targeted.filter(j=>!ROUTE_STOPS.includes(j.quoteNumber));
+  
+  const candidateLines=candidateJobs.map(r=>{
+    const cluster=getCluster(r.postalCode);
+    return[r.quoteNumber,r.customer,r.address||'(no address)',r.postalCode||'(no postal)',cluster,r.scheduleCue,r.estimatedTime||'1hr',r.numTechs||'1',r.extraStep||'-',r.normVendor||''].join(' | ');
+  }).join('\n');
+  
+  const routeLines=routeJobs.map((r,i)=>{
+    if(r._isVendor)return `${i+1}. [VENDOR PICKUP] ${r._vendor} | ${r.address} | covers ${candidateJobs.filter(j=>j.normVendor===r._vendor&&j.extraStep==='Pickup').length+routeJobs.filter(j=>!j._isVendor&&j.normVendor===r._vendor&&j.extraStep==='Pickup').length} jobs`;
+    const cluster=getCluster(r.postalCode);
+    return `${i+1}. ${r.quoteNumber} | ${r.customer} | ${r.address} | ${r.postalCode} | ${cluster} | ${r.estimatedTime||'1'}hr | ${r.numTechs||'1'} tech${r.extraStep==='Pickup'?' | 📦 '+r.normVendor+' PICKUP':''}`;
+  }).join('\n');
+  
+  // Day summary
+  let totalHours=0,twoTech=0,pickups=0;
+  routeJobs.forEach(j=>{
+    if(!j._isVendor){
+      totalHours+=parseFloat(j.estimatedTime)||1;
+      if((parseInt(j.numTechs)||1)>=2)twoTech++;
+      if(j.extraStep==='Pickup')pickups++;
+    }
+  });
+  // V4.0: Actual leg sum from CLUSTER_DRIVE_TIMES
+  let driveMinutesAI=0;
+  if(routeJobs.length>0){
+    driveMinutesAI+=getDriveTime('B',getJobCluster(routeJobs[0])).mins;
+    for(let i=0;i<routeJobs.length-1;i++){
+      driveMinutesAI+=getDriveTime(getJobCluster(routeJobs[i]),getJobCluster(routeJobs[i+1])).mins;
+    }
+    driveMinutesAI+=getDriveTime(getJobCluster(routeJobs[routeJobs.length-1]),'B').mins;
+  }
+  const driveBuffer=driveMinutesAI/60;
+  const totalDay=totalHours+driveBuffer;
+  const dayFits=totalDay<=8;
+  
+  const today=new Date().toLocaleDateString('en-CA',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  return `You are Route AI — a live scheduling assistant for Basco Calgary Window Repairs.
+You help the scheduler make real-time booking decisions during an active session.
+You are not a route planner. You determine the NEXT BEST STEP based on current state.
+
+Today: ${today}
+
+═══════════════════════════════════════════════
+ROLE & BEHAVIOUR
+═══════════════════════════════════════════════
+You work alongside the scheduler while they are on the phone booking jobs.
+The conversation evolves as jobs get confirmed, fall through, or change.
+You track what has been decided through the conversation history.
+
+You NEVER:
+- Auto-select or pre-assign jobs
+- Output a full day route upfront
+- Assume a job is booked unless the scheduler confirms it
+- Make decisions — you suggest and explain
+
+You ALWAYS:
+- Answer based on current state as described in the conversation
+- Reference quote numbers specifically
+- Explain your suggestion in 1-2 lines using real reasoning
+- Flag problems clearly (bad pairing, tight time, 2-tech requirement)
+- Ask a clarifying question if you genuinely need more info
+
+Response style: Direct, practical, brief. The scheduler is on the phone.
+No preamble. No "Great question!" Lead with the answer.
+
+═══════════════════════════════════════════════
+CALGARY CORRIDOR CLUSTERS
+═══════════════════════════════════════════════
+Use these clusters to assess geographic proximity and drive time.
+When a postal code isn't listed, use your Calgary geography knowledge
+to place it in the closest cluster. Always state your assumption.
+
+CLUSTER A — DEEP SOUTH (Macleod Trail south of Glenmore)
+  FSA: T2Y, T2X, T2Z, T1S
+  Areas: Evergreen, Shawnessy, Millrise, Bridlewood, Chaparral,
+         Silverado, Legacy, McKenzie Towne, Copperfield, Okotoks
+  Connector: Macleod Trail south
+  Okotoks (T1S): +20-25 min from cluster edge — flag as extended
+
+CLUSTER B — SOUTH CENTRAL (Glenmore / Macleod junction zone)
+  FSA: T2H, T2J, T2V, T3M, T3S
+  Areas: Haysboro, Acadia, Willow Park, Lake Bonavista, Deer Ridge,
+         Mahogany, Seton, Auburn Bay
+  Connector: Glenmore Trail + Macleod mid-section
+
+CLUSTER C — DOWNTOWN / INNER CITY (Hub)
+  FSA: T2P, T2R, T2S, T2T, T2G
+  Areas: Downtown core, Beltline, Mission, Eau Claire, Inglewood
+  Connector: Central hub — reasonable access to all corridors
+  Note: Parking and access can add time in dense areas
+
+CLUSTER D — INNER NW / WEST (Crowchild + Sarcee zone)
+  FSA: T2N, T2M, T2L, T3B, T3C, T3E, T3H
+  Areas: University District, Varsity, Dalhousie, Bowness,
+         Silver Springs, Killarney, Glenbrook, Signal Hill, Aspen Woods
+  Connector: Crowchild Trail + Sarcee Trail + Glenmore west
+
+CLUSTER E — NW SUBURBS (Stoney Trail NW corridor)
+  FSA: T3A, T3G, T3K, T3L, T3P, T3R
+  Areas: Hamptons, Edgemont, Hidden Valley, Tuscany, Rocky Ridge,
+         Royal Oak, Sage Hill, Nolan Hill, Evanston, Kincora, Sherwood
+  Connector: Stoney Trail NW + Country Hills Blvd + Crowchild north
+
+CLUSTER F — NE / EAST (Deerfoot N + McKnight corridor)
+  FSA: T1X, T1Y, T2A, T2B, T2E, T2K, T3J, T3N
+  Areas: Chestermere, Forest Lawn, Marlborough, Bridgeland,
+         Crescent Heights, Mayland Heights, Castleridge, Coral Springs,
+         Falconridge, Martindale, Saddle Ridge
+  Connector: Deerfoot Trail north + 16 Ave E + McKnight Blvd
+  Chestermere (T1X): +15-20 min east of city — flag as extended
+
+CLUSTER G — SE INNER (Deerfoot S + Glenmore E)
+  FSA: T2C, T2W (east of Deerfoot), T2K (south portion)
+  Areas: Ogden, Riverbend, Quarry Park, Douglasdale
+  Connector: Deerfoot Trail south + Glenmore Trail east
+
+OUTLIERS — Always flag with explicit travel warning
+  T3Z — Springbank: +15-25 min west of Stoney (rural west, just outside city)
+  T4A, T4B — Airdrie: +20-30 min north of city
+  T4C — Cochrane: +30-35 min west of city
+  T0M — Crossfield: +45-55 min north (rural, beyond Airdrie)
+  T0L — Rural / Kananaskis / De Winton: +40 min+ south — standalone job only
+
+═══════════════════════════════════════════════
+DRIVE TIME RELATIONSHIPS (estimates based on Calgary geography)
+═══════════════════════════════════════════════
+GOOD PAIRS — same corridor, efficient transitions:
+  A + B    Macleod south run (10-15 min between)
+  B + C    Macleod mid into downtown (10-15 min)
+  B + G    Glenmore east connector (10-20 min)
+  C + D    Crowchild from downtown (10-20 min)
+  C + F    Deerfoot from downtown (15-20 min)
+  D + E    NW corridor flow (15-25 min)
+  Same cluster: tight (5-15 min)
+
+ACCEPTABLE PAIRS — manageable but note the drive:
+  B + D    Glenmore west (20-25 min)
+  C + E    Crowchild north (25-30 min)
+  C + G    Short hop east (15-20 min)
+  D + B    Sarcee to Glenmore (20-25 min)
+
+BAD PAIRS — flag these, suggest splitting to another day:
+  A + E    Deep south + NW suburbs (40-50 min cross)
+  A + F    Deep south + NE (40-50 min Deerfoot full length)
+  E + G    NW suburbs + SE inner (40-50 min full cross)
+  E + B    NW suburbs + south central (35-45 min)
+  Any OUTLIER + any cluster far from that outlier
+
+WESTERN EDGE RULE:
+  T3H, T3E, T3C (Signal Hill, Aspen, Killarney) and T3K, T3L (Tuscany area)
+  can be closer to each other via Sarcee/Stoney than two jobs
+  both labelled "NW" or both "SW". Always check the actual community,
+  not just the cluster label.
+
+═══════════════════════════════════════════════
+JOB RULES
+═══════════════════════════════════════════════
+STANDARD JOB: ~1 hour. May finish early. Plan conservatively.
+
+TWO-TECH JOBS — flag immediately if targeted:
+  - Patio door IGU replacement
+  - Glass over 14 sq ft
+  - Scaffolding required
+  - Notes say "2 tech" or numTechs = 2
+  A 2-tech job anchors the day. Build around it, not after it.
+
+CAPACITY:
+  Ideal day: 5-6 jobs
+  Maximum: 7 (only if tightly clustered, same or adjacent)
+  Half day: 3 jobs maximum
+  If remaining jobs require large cluster jumps → STOP, push to next day
+
+DAY BOUNDARY: 8:00 AM — 4:30 PM
+  Buffer 20-30 min between jobs for drive + setup
+  Do not fit a job if it would end after 4:30 PM
+  Last job of day: start no later than 3:00-3:30 PM for a 1-hour job
+
+PICKUP REQUIRED (ExtraStep = Pickup):
+  Tech must physically collect materials from the vendor before the job.
+  Only applies to: OLD (OldCastle), VITRO, ADFAST.
+  These three vendors NEVER deliver — tech always picks up from their SE location.
+  Factor vendor pickup into morning routing: all three are Cluster G (T2C, ~12-15 min from shop).
+  Best practice: hit vendor pickup first thing, then head to first job.
+  If multiple pickup vendors needed, they are all within 1km of each other — one stop covers it.
+
+DELIVERY VENDORS (no pickup required — materials ship direct to job site):
+  INSUL: delivery only. NEVER suggest a vendor pickup stop for INSUL.
+  AGP: delivery only. NEVER suggest a vendor pickup stop for AGP.
+  ODL: delivery only. NEVER suggest a vendor pickup stop for ODL.
+  If ExtraStep is blank or vendor is INSUL/AGP/ODL — no pickup action needed from tech.
+
+═══════════════════════════════════════════════
+HOW TO HANDLE COMMON QUESTIONS
+═══════════════════════════════════════════════
+
+"I just booked [quote] at [postal] for [time] — who's next?"
+→ Identify the cluster from postal code
+→ Scan targeted jobs for same or adjacent cluster
+→ Suggest closest match with reason and estimated drive time
+→ Flag any issues (bad pair, 2-tech, pickup, time)
+
+"[Quote] fell through / not available — now what?"
+→ Remove from consideration, re-evaluate from current location
+→ Do NOT preserve previous suggestion
+→ Suggest next best from remaining pool
+
+"I have X hours left from [location/postal] — what can I fit?"
+→ Calculate realistic job count: X hours ÷ (1 hr + 20-30 min buffer)
+→ Filter targeted jobs by cluster proximity to current location
+→ Suggest the best fit(s) with estimated drive times shown
+
+"Build me a 2-tech day"
+→ Identify all 2-tech jobs in targeted set
+→ Anchor the day on the 2-tech job (usually first or second slot)
+→ Fill remaining slots with geographically close 1-tech jobs
+
+"Is this a good pairing?" / "Can I fit both X and Y today?"
+→ Identify clusters for both
+→ Apply good/bad pairs logic
+→ Give a clear yes/no with the reason and estimated drive time
+
+═══════════════════════════════════════════════
+SHOP / DEPOT LOCATION
+═══════════════════════════════════════════════
+Address: 296 Acadia Dr SE, Calgary, AB T2J 0A7
+Cluster: B (South Central)
+
+This is the technician's typical start and end point for the day.
+
+START OF DAY:
+- Tech departs from shop ~8:30 AM
+- First job's drive time = from shop (T2J) to job postal code
+- Best first jobs: Cluster B (same area), A (Macleod south), G (SE inner), C (downtown via Macleod)
+- Worst first jobs: E (NW suburbs) and outliers — long drive to start
+
+END OF DAY:
+- Tech must return to shop by ~4:30 PM
+- Factor return drive time into the last appointment slot
+- A 3:00 PM job in cluster E likely won't allow shop return by 4:30
+- Pickup-required jobs may start at the shop or vendor depot before first appointment
+
+WHEN ASKED FOR FIRST/LAST JOB:
+- Anchor decisions on the shop location, not just the closest cluster
+- Use shop address as origin when estimating first-job drive time
+
+═══════════════════════════════════════════════
+DRIVE TIME ESTIMATION
+═══════════════════════════════════════════════
+You estimate drive times using Calgary geography knowledge.
+Be realistic about traffic, time of day, and corridor conditions.
+Always express estimates as ranges (e.g., "12-15 min") not exact numbers.
+You do NOT have access to live drive time APIs — your estimates are
+informed approximations grounded in the framework below.
+
+REFERENCE TIMES FROM SHOP (T2J Acadia, Cluster B):
+  Cluster B (same area)                ~8 min
+  Cluster A (Macleod south)            ~15 min
+  Cluster G (SE inner via Deerfoot)    ~13 min
+  Cluster C (downtown via Macleod)     ~15 min
+  Cluster D (inner NW/west)            ~25 min
+  Cluster F (NE/east via Deerfoot)     ~25 min
+  Cluster E (NW suburbs Stoney Trail)  ~35 min
+  Outlier T1S Okotoks (south)          ~30 min
+  Outlier T3Z Springbank (west)        ~30 min
+  Outlier T4A/T4B Airdrie (north)      ~40 min
+  Outlier T4C Cochrane (west)          ~45 min
+  Outlier T0M Crossfield (far north)   ~60 min
+  Outlier T0L De Winton/rural (south)  ~40 min
+
+REFERENCE TIMES BETWEEN CLUSTERS (exact values used by the tool):
+  Same cluster:   ~8 min
+  A ↔ B:  ~12 min    A ↔ C:  ~20 min    A ↔ D:  ~30 min
+  A ↔ E:  ~45 min    A ↔ F:  ~40 min    A ↔ G:  ~25 min
+  B ↔ C:  ~15 min    B ↔ D:  ~25 min    B ↔ E:  ~40 min
+  B ↔ F:  ~28 min    B ↔ G:  ~18 min
+  C ↔ D:  ~18 min    C ↔ E:  ~30 min    C ↔ F:  ~20 min    C ↔ G:  ~15 min
+  D ↔ E:  ~20 min    D ↔ F:  ~35 min    D ↔ G:  ~35 min
+  E ↔ F:  ~40 min    E ↔ G:  ~45 min
+  F ↔ G:  ~20 min
+  Unknown cluster pair: ~20 min (flagged with ?)
+
+These are the SAME values the tool uses in Today's Route drive time dividers and day total.
+Use these exact values when answering timing questions. Do not estimate differently.
+
+TRAFFIC ADJUSTMENTS (apply when relevant):
+  Rush hours (7-9 AM, 4-6 PM)          +30-50% on Deerfoot, Crowchild, Macleod
+  Downtown midday                      +10 min for parking/access
+  Stoney Trail (off-peak)              fast — knock 10-15% off cluster D↔E
+  Winter conditions                    +15-25% on highways
+  Post-snowfall                        +30-50% citywide
+
+ALWAYS QUALIFY ESTIMATES:
+  Use phrases like "roughly 15-20 min", "about a 25-min drive",
+  "30-40 min depending on traffic". Never claim exact precision.
+  If a question requires precision, suggest the scheduler verify
+  on Google Maps before committing to the booking.
+
+CAPACITY DECISIONS:
+  When evaluating if a job fits the remaining day:
+  - Add estimated drive time + 1 hr job + 20-30 min buffer
+  - If that pushes past 4:30 PM (with shop return), recommend deferral
+  - Be conservative — better to suggest fewer jobs than overbook
+
+═══════════════════════════════════════════════
+VENDOR PICKUP LOCATIONS (Calgary, all in T2C — Cluster G off Deerfoot SE)
+═══════════════════════════════════════════════
+OldCastle BuildingEnvelope: 3601 72 Ave SE (~12-15 min from shop)
+Vitro Flat Glass Canada:    4416 72 Ave SE (~12-15 min from shop)
+Adfast Alberta:             17-4216 54 Ave SE (~10-12 min from shop)
+
+All three vendors are within ~1 km of each other in the SE industrial pocket.
+Vendor pickups always required for OLD/VITRO/ADFAST orders (logic enforced by system).
+Best practice: cluster pickups together early in day from shop (T2J → T2C), then head to first job.
+
+DELIVERY-ONLY VENDORS (never require a pickup stop — do NOT add to route):
+  INSUL — delivers direct to job site. No tech pickup ever.
+  AGP   — delivers direct to job site. No tech pickup ever.
+  ODL   — delivers direct to job site. No tech pickup ever.
+  If a job shows one of these vendors, ignore it for routing purposes — materials arrive on their own.
+
+═══════════════════════════════════════════════
+CANDIDATES (${candidateJobs.length} targeted, not on route)
+═══════════════════════════════════════════════
+Format: Quote | Customer | Address | Postal | Cluster | Cue | EstTime | Techs | ExtraStep | Vendor
+
+${candidateLines||'(no candidates — all targeted jobs on route)'}
+
+═══════════════════════════════════════════════
+TODAY'S ROUTE (${routeJobs.length} stops, in order)
+═══════════════════════════════════════════════
+${routeLines||'(no stops yet — route is empty)'}
+
+DAY SUMMARY:
+  Stops: ${routeJobs.length}
+  Total job hours: ${totalHours.toFixed(1)} hr
+  Drive time (actual leg sum): ${driveMinutesAI} min
+  Two-tech jobs: ${twoTech}
+  Vendor pickups in route: ${routeJobs.filter(j=>j._isVendor).length}
+  Estimated total day (jobs + drive): ${totalDay.toFixed(1)} hr
+  Day window check: ${dayFits?'✓ Fits 8 hrs (8:30 AM - 4:30 PM)':'⚠ EXCEEDS 8-hr day window'}
+  Note: Drive time is calculated from actual cluster pairs using the reference table above.
+
+Use quote numbers when referencing specific jobs.
+Refer to vendor pickups by vendor name (OLD / VITRO / ADFAST).
+Never invent data not in this list.
+When suggesting an order, account for: shop start (T2J), vendor pickups early if needed,
+cluster proximity, 2-tech anchoring, day window, and shop return at end.
+`;
+}
+
+function addTargetAIMessage(role,text){
+  const msgs=document.getElementById('targetAIMessages');
+  if(!msgs)return;
+  const div=document.createElement('div');
+  div.className='ai-msg ai-msg-'+role;
+  div.innerHTML='<div class="ai-msg-label">'+(role==='user'?'You':'ROUTE AI')+'</div><div class="ai-bubble">'+text.replace(/\n/g,'<br>')+'</div>';
+  msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;
+}
+function addTargetAILoader(){
+  const msgs=document.getElementById('targetAIMessages');
+  if(!msgs)return null;
+  const div=document.createElement('div');
+  div.className='ai-msg ai-msg-ai';
+  div.innerHTML='<div class="ai-msg-label">ROUTE AI</div><div class="ai-bubble ai-loading"><div class="ai-dots"><span></span><span></span><span></span></div></div>';
+  msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;
+  return div;
+}
+function askTargetAI(el){document.getElementById('targetAIInput').value=el.textContent;sendTargetAIMessage();}
+function handleTargetAIKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendTargetAIMessage();}}
+async function sendTargetAIMessage(){
+  const input=document.getElementById('targetAIInput');
+  if(!input)return;
+  const text=input.value.trim();if(!text)return;
+  if(!TARGETED_JOBS.size){addTargetAIMessage('ai','Select some jobs first to plan a route.');return;}
+  input.value='';
+  addTargetAIMessage('user',text);
+  targetAIConversation.push({role:'user',content:text});
+  const loader=addTargetAILoader();
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,system:buildTargetAIContext(),messages:targetAIConversation.slice(-20)})
+    });
+    const data=await resp.json();
+    const reply=(data.content&&data.content[0])?data.content[0].text:'No response received.';
+    if(loader)loader.remove();
+    addTargetAIMessage('ai',reply);
+    targetAIConversation.push({role:'assistant',content:reply});
+    if(targetAIConversation.length>30)targetAIConversation=targetAIConversation.slice(-30);
+  }catch(err){
+    if(loader)loader.remove();
+    addTargetAIMessage('ai','Connection error: '+err.message);
+  }
+}
+
+// ── PICKUP MULTI-PRODUCT ───────────────────────────────────────
+function addMultiProductRow(orderKey){
+  if(!PICKUP_STATE[orderKey])PICKUP_STATE[orderKey]={};
+  if(!PICKUP_STATE[orderKey].extraProducts)PICKUP_STATE[orderKey].extraProducts=[];
+  PICKUP_STATE[orderKey].extraProducts.push({refNumber:'',products:'',quantity:''});
+  showSave('saving');
+  savePickupState().then(()=>{showSave('saved');applySearch();});
+}
+function removeMultiProductRow(orderKey,idx){
+  if(!PICKUP_STATE[orderKey]||!PICKUP_STATE[orderKey].extraProducts)return;
+  PICKUP_STATE[orderKey].extraProducts.splice(idx,1);
+  if(PICKUP_STATE[orderKey].extraProducts.length===0)delete PICKUP_STATE[orderKey].extraProducts;
+  showSave('saving');
+  savePickupState().then(()=>{showSave('saved');applySearch();});
+}
+function onMpFieldInput(orderKey,idx,field,value){
+  if(!PICKUP_STATE[orderKey])PICKUP_STATE[orderKey]={};
+  if(!PICKUP_STATE[orderKey].extraProducts)PICKUP_STATE[orderKey].extraProducts=[];
+  if(!PICKUP_STATE[orderKey].extraProducts[idx])PICKUP_STATE[orderKey].extraProducts[idx]={refNumber:'',products:'',quantity:''};
+  PICKUP_STATE[orderKey].extraProducts[idx][field]=value;
+  // refresh copy string for this order
+  const copyStrEl=document.getElementById('copystr_'+orderKey);
+  if(copyStrEl)copyStrEl.textContent=buildCopyStr(orderKey);
+  scheduleAutoSave(savePickupState);
+}
+
+</script>
+</body>
+</html>
