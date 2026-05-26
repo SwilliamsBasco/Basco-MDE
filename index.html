@@ -1837,38 +1837,51 @@ const SHOP_COORDS={lat:50.977,lng:-114.057,address:'296 Acadia Dr SE, Calgary, A
 // Replace ORS_API_KEY value with your key from openrouteservice.org
 const ORS_API_KEY = '2da7f588333722a11bdd9063399492a58o7ol1N36k';
 
-// Cache: address string → {lat, lng, fallback: bool}
-const GEOCODE_CACHE = {};
-// ORS matrix cache: sorted coord-key → minutes
+// Persistent geocode store keyed by quoteNumber — survives re-renders
+// { quoteNumber: { lat, lng, fallback: bool } }
+const GEOCODE_STORE = {};
+// ORS matrix cache
 const ORS_MATRIX_CACHE = {};
 
-async function geocodeSingleAddress(address, postalCode) {
-  const query = [address, postalCode, 'Calgary', 'AB', 'Canada'].filter(Boolean).join(', ');
-  const cacheKey = query.toLowerCase().trim();
-  if (GEOCODE_CACHE[cacheKey]) return GEOCODE_CACHE[cacheKey];
+// Calgary bounding box for Nominatim (viewbox: west,south,east,north)
+const CALGARY_VIEWBOX = '-114.45,50.72,-113.72,51.35';
+
+async function geocodeSingleAddress(quoteNumber, address, postalCode) {
+  if (GEOCODE_STORE[quoteNumber]) return GEOCODE_STORE[quoteNumber];
+  // Build a clean query: street address + postal code + city
+  const street = (address||'').trim();
+  const pc = (postalCode||'').trim();
+  const query = [street, pc, 'Calgary AB'].filter(Boolean).join(', ');
   try {
-    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ca&q=' + encodeURIComponent(query);
-    const resp = await fetch(url, { headers: { 'Accept-Language': 'en', 'User-Agent': 'BascoMDE/4.4' } });
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ca&bounded=1&viewbox=' + CALGARY_VIEWBOX + '&q=' + encodeURIComponent(query);
+    const resp = await fetch(url, { headers: { 'Accept-Language': 'en', 'User-Agent': 'BascoMDE/4.5 (basco.ca)' } });
     const data = await resp.json();
     if (data && data.length > 0) {
       const result = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), fallback: false };
-      GEOCODE_CACHE[cacheKey] = result;
+      GEOCODE_STORE[quoteNumber] = result;
       return result;
     }
   } catch(e) { /* fall through to FSA centroid */ }
+  // Fallback: FSA centroid
   const fsa = (postalCode||'').replace(/\s/g,'').substring(0,3).toUpperCase();
   const centroid = FSA_CENTROIDS[fsa];
   if (centroid) {
     const result = { lat: centroid.lat, lng: centroid.lng, fallback: true };
-    GEOCODE_CACHE[cacheKey] = result;
+    GEOCODE_STORE[quoteNumber] = result;
     return result;
   }
+  // No result at all
+  GEOCODE_STORE[quoteNumber] = null;
   return null;
 }
 
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
+let _geocodingInProgress = false;
+
 async function geocodeAllJobs(jobs) {
+  if (_geocodingInProgress) return; // prevent concurrent runs
+  _geocodingInProgress = true;
   let progressEl = document.getElementById('geocodeProgress');
   if (!progressEl) {
     progressEl = document.createElement('div');
@@ -1876,25 +1889,17 @@ async function geocodeAllJobs(jobs) {
     progressEl.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1e1b4b;color:#fff;padding:8px 18px;border-radius:20px;font-size:12px;font-family:sans-serif;z-index:9999;box-shadow:0 2px 10px rgba(0,0,0,0.4);pointer-events:none';
     document.body.appendChild(progressEl);
   }
+  const jobsToGeocode = jobs.filter(j => !j._isVendor && GEOCODE_STORE[j.quoteNumber] === undefined);
   let done = 0;
-  const total = jobs.length;
-  for (const job of jobs) {
-    if (job._realLat !== undefined) { done++; continue; }
+  const total = jobsToGeocode.length;
+  for (const job of jobsToGeocode) {
     progressEl.textContent = '\u{1F4CD} Locating addresses\u2026 ' + done + '/' + total;
-    const result = await geocodeSingleAddress(job.address, job.postalCode);
-    if (result) {
-      job._realLat = result.lat;
-      job._realLng = result.lng;
-      job._geocodeFallback = result.fallback;
-    } else {
-      job._realLat = null;
-      job._realLng = null;
-      job._geocodeFallback = true;
-    }
+    await geocodeSingleAddress(job.quoteNumber, job.address, job.postalCode);
     done++;
     await sleep(1100);
   }
   progressEl.remove();
+  _geocodingInProgress = false;
 }
 
 async function fetchOrsMatrix(jobs) {
@@ -1902,9 +1907,10 @@ async function fetchOrsMatrix(jobs) {
   const locations = [[SHOP_COORDS.lng, SHOP_COORDS.lat]];
   const indexMap = [];
   jobs.forEach((job, i) => {
-    if (job._realLat && !job._geocodeFallback) {
+    if (GEOCODE_STORE[job.quoteNumber] && !GEOCODE_STORE[job.quoteNumber].fallback) {
       indexMap.push(i);
-      locations.push([job._realLng, job._realLat]);
+      const gc = GEOCODE_STORE[job.quoteNumber];
+      locations.push([gc.lng, gc.lat]);
     }
   });
   if (locations.length < 2) return null;
@@ -2012,11 +2018,24 @@ const VENDOR_PICKUPS={
 };
 
 function getJobCoords(job){
-  // Use real geocoded coords if available
-  if (job._realLat != null) return { lat: job._realLat, lng: job._realLng };
+  // Use persistent geocode store (survives re-renders)
+  if (job.quoteNumber && GEOCODE_STORE[job.quoteNumber] !== undefined) {
+    return GEOCODE_STORE[job.quoteNumber]; // may be null if geocode failed entirely
+  }
   // Fallback: FSA centroid
   const fsa=(job.postalCode||'').replace(/\s/g,'').substring(0,3).toUpperCase();
   return FSA_CENTROIDS[fsa]||null;
+}
+
+function isJobGeocodeFallback(job){
+  if (!job.quoteNumber) return false;
+  const stored = GEOCODE_STORE[job.quoteNumber];
+  return !stored || stored.fallback === true;
+}
+
+function isJobGeocoded(job){
+  // Returns true only if this job has a result in GEOCODE_STORE (even a fallback)
+  return job.quoteNumber && GEOCODE_STORE[job.quoteNumber] !== undefined;
 }
 
 function clusterColorHex(cluster){
@@ -2032,32 +2051,28 @@ function initTargetMap(allJobs,routeJobs){
   if(targetMapInstance){targetMapInstance.remove();targetMapInstance=null;}
   targetMapMarkers={};
   // V4.4: Async geocode + ORS upgrade after initial render
-  const jobsNeedingGeocode = allJobs.filter(j=>!j._isVendor && j._realLat===undefined);
-  if(jobsNeedingGeocode.length > 0){
-    geocodeAllJobs(allJobs.filter(j=>!j._isVendor)).then(()=>{
-      // Store for ORS matrix lookup
+  // V4.5: Geocode jobs that aren't in GEOCODE_STORE yet (keyed by quoteNumber — survives re-renders)
+  const jobsNeedingGeocode = allJobs.filter(j=>!j._isVendor && GEOCODE_STORE[j.quoteNumber]===undefined);
+  if(jobsNeedingGeocode.length > 0 && !_geocodingInProgress){
+    geocodeAllJobs(allJobs).then(()=>{
       _orsJobList = allJobs.filter(j=>!j._isVendor);
       return fetchOrsMatrix(_orsJobList);
     }).then(orsResult=>{
       if(orsResult){ _orsMatrix=orsResult.matrix; _orsIndexMap=orsResult.indexMap; }
-      // Re-render map and route with real data
-      const curTargeted=MDE_SCHEDULE.filter(r=>TARGETED_JOBS.has(r.quoteNumber));
-      const decorated=curTargeted.map(j=>({...j,_zone:getZone(j.postalCode),_cluster:getCluster(j.postalCode)}));
-      const curRouteJobs=ROUTE_STOPS.map(qn=>{
-        if(qn.startsWith('VENDOR_')){const v=qn.replace('VENDOR_','');return VENDOR_PICKUPS[v]?{_isVendor:true,_vendor:v,quoteNumber:qn,customer:VENDOR_PICKUPS[v].name,_name:VENDOR_PICKUPS[v].name,_address:VENDOR_PICKUPS[v].address,address:VENDOR_PICKUPS[v].address,postalCode:'',normVendor:v,extraStep:'Pickup',estimatedTime:'0.5'}:null;}
-        return decorated.find(j=>j.quoteNumber===qn);
-      }).filter(Boolean);
-      initTargetMap(decorated,curRouteJobs);
-      // Also refresh route panel for updated drive times
+      // Refresh map pins in place — update existing markers rather than full re-render
+      refreshMapPins(allJobs, routeJobs);
+      // Refresh route drive time display only
       const routePanel=document.getElementById('targetRouteList');
-      if(routePanel) routePanel.innerHTML=renderRouteList(decorated,curRouteJobs);
+      if(routePanel) routePanel.innerHTML=renderRouteList(allJobs,routeJobs);
     });
-  } else {
-    // Already geocoded — just make sure ORS matrix is loaded
+  } else if(!_geocodingInProgress) {
+    // All geocoded — ensure ORS matrix is current
     _orsJobList = allJobs.filter(j=>!j._isVendor);
     if(!_orsMatrix && _orsJobList.length > 0){
       fetchOrsMatrix(_orsJobList).then(orsResult=>{
         if(orsResult){ _orsMatrix=orsResult.matrix; _orsIndexMap=orsResult.indexMap; }
+        const routePanel=document.getElementById('targetRouteList');
+        if(routePanel) routePanel.innerHTML=renderRouteList(allJobs,routeJobs);
       });
     }
   }
@@ -2146,7 +2161,7 @@ function initTargetMap(allJobs,routeJobs){
       const opacity=isOnRoute?'1':'0.55';
       const dashStyle=isOnRoute?'':'border-style:dashed;';
       const label=isOnRoute?stopNum:'·';
-      const fallbackBadge=job._geocodeFallback?'<div style="position:absolute;top:-4px;right:-4px;background:#d97706;color:#fff;border-radius:50%;width:13px;height:13px;font-size:8px;display:flex;align-items:center;justify-content:center;border:1px solid #fff;font-family:sans-serif" title="Approximate location">⚠</div>':'';
+      const fallbackBadge=isJobGeocodeFallback(job)?'<div style="position:absolute;top:-4px;right:-4px;background:#d97706;color:#fff;border-radius:50%;width:13px;height:13px;font-size:8px;display:flex;align-items:center;justify-content:center;border:1px solid #fff;font-family:sans-serif" title="Approximate location">⚠</div>':'';
       const icon=L.divIcon({
         className:'',
         html:`<div style="position:relative;display:inline-block"><div style="background:${color};color:#fff;border-radius:50%;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;${borderStyle};box-shadow:0 1px 4px rgba(0,0,0,0.3);font-family:sans-serif;opacity:${opacity};${dashStyle}">${label}</div>${fallbackBadge}</div>`,
@@ -2163,7 +2178,7 @@ function initTargetMap(allJobs,routeJobs){
           <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:2px">${job.quoteNumber}</div>
           <div style="font-size:12px;font-weight:600;margin-bottom:2px">${job.customer||''}</div>
           <div style="font-size:11px;color:#666;margin-bottom:3px">${job.address||'(no address)'}</div>
-          <div style="font-size:10px;color:#999;margin-bottom:4px">${job.postalCode||''} · Cluster ${job._cluster}${job._geocodeFallback?'  <span style="color:#d97706;font-weight:700" title="Pin location is approximate (FSA centroid)">⚠️ approx</span>':''}</div>
+          <div style="font-size:10px;color:#999;margin-bottom:4px">${job.postalCode||''} · Cluster ${job._cluster}${isJobGeocodeFallback(job)?'  <span style="color:#d97706;font-weight:700" title="Pin location is approximate (FSA centroid)">⚠️ approx</span>':''}</div>
           <div style="margin-bottom:5px"><span style="font-size:9px;background:#f3f4f6;color:#374151;padding:1px 5px;border-radius:3px;margin-right:3px">${parseFloat(job.estimatedTime)||1}h</span>${(parseInt(job.numTechs)||1)>=2?'<span style="font-size:9px;background:#fed7aa;color:#9a3412;padding:1px 5px;border-radius:3px;margin-right:3px;font-weight:700">2 TECH</span>':''} ${job.extraStep==='Pickup'?`<span style="font-size:9px;background:#ede9fe;color:#5b21b6;padding:1px 5px;border-radius:3px;font-weight:700">📦 ${job.normVendor||'PICKUP'}</span>`:''}</div>
           ${pickupNote}${onRouteNote}
           <a href="${directionsUrl}" target="_blank" rel="noopener" style="display:inline-block;font-size:10px;background:#0550ae;color:#fff;padding:4px 10px;border-radius:4px;text-decoration:none;font-weight:600">Directions from Shop</a>
@@ -2239,6 +2254,47 @@ function initTargetMap(allJobs,routeJobs){
       });
     }
   });
+}
+
+function refreshMapPins(allJobs, routeJobs){
+  // Move existing markers to real geocoded positions and update fallback badges
+  // Called after geocoding completes — avoids full map rebuild
+  if(!targetMapInstance) return;
+  const routeQuoteSet=new Set(ROUTE_STOPS);
+  allJobs.forEach(job=>{
+    if(job._isVendor) return;
+    const marker = targetMapMarkers[job.quoteNumber];
+    if(!marker) return;
+    const coords = getJobCoords(job);
+    if(!coords) return;
+    const isFallback = isJobGeocodeFallback(job);
+    // Move pin to real location
+    marker.setLatLng([coords.lat, coords.lng]);
+    // Update icon to show/remove fallback badge
+    const isOnRoute = routeQuoteSet.has(job.quoteNumber);
+    const stopNum = isOnRoute ? (ROUTE_STOPS.indexOf(job.quoteNumber)+1) : null;
+    const color = clusterColorHex(job._cluster);
+    const twoTech=(parseInt(job.numTechs)||1)>=2;
+    const longJob=(parseFloat(job.estimatedTime)||1)>=2;
+    const size=longJob?30:26;
+    const borderStyle=twoTech?'border:3px double #fff;outline:1px solid #000':'border:2px solid #fff';
+    const opacity=isOnRoute?'1':'0.55';
+    const dashStyle=isOnRoute?'':'border-style:dashed;';
+    const label=isOnRoute?stopNum:'·';
+    const fallbackBadge=isFallback?'<div style="position:absolute;top:-4px;right:-4px;background:#d97706;color:#fff;border-radius:50%;width:13px;height:13px;font-size:8px;display:flex;align-items:center;justify-content:center;border:1px solid #fff;font-family:sans-serif" title="Approximate location">⚠</div>':'';
+    marker.setIcon(L.divIcon({
+      className:'',
+      html:`<div style="position:relative;display:inline-block"><div style="background:${color};color:#fff;border-radius:50%;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;${borderStyle};box-shadow:0 1px 4px rgba(0,0,0,0.3);font-family:sans-serif;opacity:${opacity};${dashStyle}">${label}</div>${fallbackBadge}</div>`,
+      iconSize:[size+8,size+8],iconAnchor:[(size+8)/2,(size+8)/2],popupAnchor:[0,-(size+8)/2]
+    }));
+  });
+  // Refit bounds to real pin positions
+  const bounds=[[SHOP_COORDS.lat,SHOP_COORDS.lng]];
+  allJobs.forEach(job=>{
+    const c=getJobCoords(job);
+    if(c) bounds.push([c.lat,c.lng]);
+  });
+  if(bounds.length>1) targetMapInstance.fitBounds(bounds,{padding:[30,30],maxZoom:13});
 }
 
 function hoverVendorPin(vendor){
