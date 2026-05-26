@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Basco MDE V3.9</title>
+<title>Basco MDE V4.5c</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -1849,9 +1849,19 @@ const CALGARY_VIEWBOX = '-114.45,50.72,-113.72,51.35';
 async function geocodeSingleAddress(quoteNumber, address, postalCode) {
   if (GEOCODE_STORE[quoteNumber]) return GEOCODE_STORE[quoteNumber];
   // Build a clean query: street address + postal code + city
-  const street = (address||'').trim();
+  // Normalize directional suffixes: Nominatim matches NW/NE/SW/SE, not spelled-out words
+  const street = (address||'').trim()
+    .replace(/\bNorthwest\b/gi, 'NW')
+    .replace(/\bNortheast\b/gi, 'NE')
+    .replace(/\bSouthwest\b/gi, 'SW')
+    .replace(/\bSoutheast\b/gi, 'SE')
+    .replace(/\bNorth\b/gi, 'N')
+    .replace(/\bSouth\b/gi, 'S')
+    .replace(/\bEast\b/gi, 'E')
+    .replace(/\bWest\b/gi, 'W');
   const pc = (postalCode||'').trim();
-  const query = [street, pc, 'Calgary AB'].filter(Boolean).join(', ');
+  // Use street + city only — postal code can confuse Nominatim parser
+  const query = street + ', Calgary, AB, Canada';
   try {
     const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ca&bounded=1&viewbox=' + CALGARY_VIEWBOX + '&q=' + encodeURIComponent(query);
     const resp = await fetch(url, { headers: { 'Accept-Language': 'en', 'User-Agent': 'BascoMDE/4.5 (basco.ca)' } });
